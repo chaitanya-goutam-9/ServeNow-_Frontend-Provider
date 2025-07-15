@@ -169,7 +169,9 @@ const Login = () => {
         {
           headers: {
             "Content-Type": "application/json",
+          
           },
+          withCredentials: true, // Ensure cookies are sent with the request
         }
       );
 

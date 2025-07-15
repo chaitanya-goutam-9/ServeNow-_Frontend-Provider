@@ -82,7 +82,6 @@ const styles = {
     transition: "transform 0.2s",
   },
 };
-
 const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const AddServiceForm = () => {
@@ -134,10 +133,7 @@ const AddServiceForm = () => {
     formDataToSend.append("category", formData.category);
     formDataToSend.append("price", formData.price);
     formDataToSend.append("duration", formData.duration);
-    formDataToSend.append(
-      "availableDays",
-      JSON.stringify(formData.availableDays)
-    );
+    formDataToSend.append("availableDays", JSON.stringify(formData.availableDays));
     formDataToSend.append("location", formData.location);
     formDataToSend.append("contact", formData.contact);
     formDataToSend.append("aadhaarNumber", formData.aadhaarNumber);
@@ -149,31 +145,16 @@ const AddServiceForm = () => {
     if (formData.licenseFile) {
       formDataToSend.append("licenseFile", formData.licenseFile);
     }
-
     formData.photos.forEach((photo) => {
       formDataToSend.append("photos", photo);
     });
 
     try {
-      const token = localStorage.getItem("token");
       const response = await fetch("http://localhost:5000/api/provider-services/submit", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include", // Send cookies with the request
         body: formDataToSend,
-
-      // const token =localStorage.setItem("token", response.data.token);
-      // const response = await fetch(
-      //   "http://localhost:5000/api/provider-services/submit",
-      //   {
-      //     method: "POST",
-      //     headers: {
-      //       Authorization: `Bearer ${token}`,
-      //     },
-      //     body: formDataToSend,
-        }
-      );
+      });
 
       if (response.ok) {
         alert("Service Added Successfully!");
@@ -192,10 +173,10 @@ const AddServiceForm = () => {
           photos: [],
         });
       } else {
-        alert("Failed to add service. Please try again.");
+        const errorData = await response.json();
+        alert(`Failed to add service: ${errorData.msg || "Please try again."}`);
       }
     } catch (error) {
-      
       alert("Server error. Try again later.");
       console.error("Error:", error);
     }
