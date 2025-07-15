@@ -5,15 +5,15 @@ const styles = {
     minHeight: "100vh",
     backgroundColor: "#B7E7E7",
     padding: "40px 20px",
-    fontFamily: "Arial, sans-serif",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
   formContainer: {
-    maxWidth: "600px",
+    maxWidth: "700px",
     margin: "0 auto",
     backgroundColor: "#ffffff",
-    padding: "30px",
-    borderRadius: "10px",
-    boxShadow: "0 0 15px rgba(0, 102, 204, 0.1)",
+    padding: "35px",
+    borderRadius: "12px",
+    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
   },
   formGroup: {
     marginBottom: "20px",
@@ -23,16 +23,19 @@ const styles = {
     flexWrap: "wrap",
   },
   label: {
-    width: "150px",
+    width: "180px",
     color: "#003366",
-    fontWeight: "bold",
+    fontWeight: "600",
+    fontSize: "1rem",
   },
   input: {
     flex: 1,
-    padding: "10px",
+    padding: "10px 12px",
     border: "1px solid #cce6ff",
-    borderRadius: "6px",
+    borderRadius: "8px",
     fontSize: "1rem",
+    outline: "none",
+    transition: "border 0.2s",
   },
   checkboxGroup: {
     display: "flex",
@@ -43,26 +46,40 @@ const styles = {
   checkboxLabel: {
     display: "flex",
     alignItems: "center",
-    gap: "5px",
+    gap: "6px",
+    backgroundColor: "#eef7ff",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    fontSize: "0.95rem",
+    fontWeight: "500",
     color: "#003366",
-  },
-  imagePreview: {
-    width: "100%",
-    maxHeight: "200px",
-    objectFit: "contain",
-    marginTop: "10px",
-    borderRadius: "8px",
-    border: "1px solid #cce6ff",
+    cursor: "pointer",
   },
   submitButton: {
     backgroundColor: "#3399ff",
     color: "white",
     border: "none",
-    padding: "12px 20px",
+    padding: "14px 24px",
     fontSize: "1rem",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
-    marginTop: "10px",
+    marginTop: "20px",
+    transition: "background-color 0.3s",
+  },
+  photoPreviewContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "12px",
+    marginTop: "15px",
+  },
+  photoPreview: {
+    width: "100px",
+    height: "100px",
+    objectFit: "cover",
+    borderRadius: "8px",
+    border: "1px solid #ccc",
+    boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+    transition: "transform 0.2s",
   },
 };
 
@@ -77,10 +94,12 @@ const AddServiceForm = () => {
     availableDays: [],
     location: "",
     contact: "",
-    image: "",
+    aadhaarNumber: "",
+    aadhaarFile: null,
+    licenseNumber: "",
+    licenseFile: null,
+    photos: [],
   });
-
-  // const [imagePreview, setImagePreview] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -96,146 +115,202 @@ const AddServiceForm = () => {
     }));
   };
 
-  // const handleImageUpload = (e) => {
-  //   const file = e.target.files[0];
-  //   if (!file) return;
+  const handleFileChange = (e, field) => {
+    const file = e.target.files[0];
+    setFormData((prev) => ({ ...prev, [field]: file }));
+  };
 
-  //   const reader = new FileReader();
-  //   reader.onloadend = () => {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       image: reader.result,
-  //     }));
-  //     setImagePreview(reader.result);
-  //   };
-  //   reader.readAsDataURL(file);
-  // };
+  const handlePhotoUpload = (e) => {
+    const files = Array.from(e.target.files);
+    setFormData((prev) => ({
+      ...prev,
+      photos: [...prev.photos, ...files],
+    }));
+  };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    alert("Service Added Successfully!");
-    const saved = JSON.parse(localStorage.getItem("services")) || [];
-    localStorage.setItem("services", JSON.stringify([...saved, formData]));
+  const handleSubmit = async () => {
+    const formDataToSend = new FormData();
+    formDataToSend.append("serviceName", formData.serviceName);
+    formDataToSend.append("category", formData.category);
+    formDataToSend.append("price", formData.price);
+    formDataToSend.append("duration", formData.duration);
+    formDataToSend.append(
+      "availableDays",
+      JSON.stringify(formData.availableDays)
+    );
+    formDataToSend.append("location", formData.location);
+    formDataToSend.append("contact", formData.contact);
+    formDataToSend.append("aadhaarNumber", formData.aadhaarNumber);
+    formDataToSend.append("licenseNumber", formData.licenseNumber);
+
+    if (formData.aadhaarFile) {
+      formDataToSend.append("aadhaarFile", formData.aadhaarFile);
+    }
+    if (formData.licenseFile) {
+      formDataToSend.append("licenseFile", formData.licenseFile);
+    }
+
+    formData.photos.forEach((photo) => {
+      formDataToSend.append("photos", photo);
+    });
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5000/api/provider-services/submit", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formDataToSend,
+
+      // const token =localStorage.setItem("token", response.data.token);
+      // const response = await fetch(
+      //   "http://localhost:5000/api/provider-services/submit",
+      //   {
+      //     method: "POST",
+      //     headers: {
+      //       Authorization: `Bearer ${token}`,
+      //     },
+      //     body: formDataToSend,
+        }
+      );
+
+      if (response.ok) {
+        alert("Service Added Successfully!");
+        setFormData({
+          serviceName: "",
+          category: "",
+          price: "",
+          duration: "",
+          availableDays: [],
+          location: "",
+          contact: "",
+          aadhaarNumber: "",
+          aadhaarFile: null,
+          licenseNumber: "",
+          licenseFile: null,
+          photos: [],
+        });
+      } else {
+        alert("Failed to add service. Please try again.");
+      }
+    } catch (error) {
+      
+      alert("Server error. Try again later.");
+      console.error("Error:", error);
+    }
   };
 
   return (
     <div style={styles.pageWrapper}>
       <div style={styles.formContainer}>
-        <h2 style={{ color: "#003366", marginBottom: "20px" }}>Add New Service</h2>
-        <form onSubmit={handleSubmit}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Service Name</label>
+        <h2 style={{ color: "#003366", marginBottom: "20px" }}>
+          Add New Service
+        </h2>
+
+        {[
+          ["Service Name", "serviceName"],
+          ["Category", "category"],
+          ["Price (₹)", "price", "number"],
+          ["Duration", "duration"],
+          ["Location", "location"],
+          ["Contact", "contact", "tel"],
+          ["Aadhaar Number", "aadhaarNumber"],
+          ["License Number", "licenseNumber"],
+        ].map(([label, name, type = "text"]) => (
+          <div key={name} style={styles.formGroup}>
+            <label style={styles.label}>{label}</label>
             <input
               style={styles.input}
-              type="text"
-              name="serviceName"
-              value={formData.serviceName}
+              type={type}
+              name={name}
+              value={formData[name]}
               onChange={handleChange}
-              placeholder="Enter Name"
               required
             />
           </div>
+        ))}
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Category</label>
-            <input
-              style={styles.input}
-              type="text"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              placeholder="Cleaning, Plumbing"
-              required
-            />
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Available Days</label>
+          <div style={styles.checkboxGroup}>
+            {daysOfWeek.map((day) => (
+              <label key={day} style={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={formData.availableDays.includes(day)}
+                  onChange={() => handleDayToggle(day)}
+                />
+                {day}
+              </label>
+            ))}
           </div>
+        </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Price (₹)</label>
-            <input
-              style={styles.input}
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              placeholder="Enter rupees"
-              required
-            />
-          </div>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Upload Aadhaar</label>
+          <input
+            style={styles.input}
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf"
+            onChange={(e) => handleFileChange(e, "aadhaarFile")}
+            required
+          />
+        </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Duration</label>
-            <input
-              style={styles.input}
-              type="text"
-              name="duration"
-              value={formData.duration}
-              onChange={handleChange}
-              placeholder="e.g. 2 hours"
-              required
-            />
-          </div>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Upload License</label>
+          <input
+            style={styles.input}
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf"
+            onChange={(e) => handleFileChange(e, "licenseFile")}
+            required
+          />
+        </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Available Days</label>
-            <div style={styles.checkboxGroup}>
-              {daysOfWeek.map((day) => (
-                <label key={day} style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={formData.availableDays.includes(day)}
-                    onChange={() => handleDayToggle(day)}
-                  />
-                  {day}
-                </label>
-              ))}
-            </div>
-          </div>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Upload Photos</label>
+          <input
+            style={styles.input}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handlePhotoUpload}
+          />
+        </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Location</label>
-            <input
-              style={styles.input}
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="Enter Location"
-              required
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Contact</label>
-            <input
-              style={styles.input}
-              type="tel"
-              name="contact"
-              value={formData.contact}
-              onChange={handleChange}
-              placeholder="Enter Number"
-              required
-            />
-          </div>
-
-          {/* <div style={styles.formGroup}>
-            <label style={styles.label}>Service Image</label>
-            <div style={{ flex: 1 }}>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                style={{ ...styles.input, padding: "8px" }}
+        {formData.photos.length > 0 && (
+          <div style={styles.photoPreviewContainer}>
+            {formData.photos.map((file, idx) => (
+              <img
+                key={idx}
+                src={URL.createObjectURL(file)}
+                alt={`Preview ${idx}`}
+                style={styles.photoPreview}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.transform = "scale(1.05)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.transform = "scale(1)")
+                }
               />
-              {imagePreview && (
-                <img src={imagePreview} alt="Preview" style={styles.imagePreview} />
-              )}
-            </div>
-          </div> */}
+            ))}
+          </div>
+        )}
 
-          <button type="submit" style={styles.submitButton}>
-            Add Service
-          </button>
-        </form>
+        <button
+          style={styles.submitButton}
+          onClick={handleSubmit}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "#1c80e3")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "#3399ff")
+          }
+        >
+          Add Service
+        </button>
       </div>
     </div>
   );

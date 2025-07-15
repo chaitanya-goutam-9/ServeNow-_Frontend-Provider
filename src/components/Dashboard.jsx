@@ -115,7 +115,7 @@ const styles = {
   },
   contentArea: {
     padding: "20px",
-    backgroundColor: "#f0f8ff",
+    // backgroundColor: "#f0f8ff",
     flex: 1,
     width: "100%",
     boxSizing: "border-box",

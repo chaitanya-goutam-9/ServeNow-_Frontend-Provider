@@ -72,7 +72,7 @@ function ForgotPassword() {
     setMessage('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/provider/forgot-password', { email });
+      const res = await axios.post('http://localhost:5000/api/provider/forgotPassword', { email });
       if (res.status === 200) {
         setStep(2);
         setMessage('OTP sent to your email.');
