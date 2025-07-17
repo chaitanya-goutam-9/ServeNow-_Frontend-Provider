@@ -158,39 +158,40 @@ const Login = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage("");
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setMessage("");
 
-    try {
-      const response = await axios.post(
-        "http://localhost:5000/api/provider/login",
-        formData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          withCredentials: true,
-        }
-      );
+  try {
+    const response = await axios.post(
+      "http://localhost:5000/api/provider/login",
+      formData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
 
- if (response.status === 200 && response.data.token) {
-  localStorage.setItem("token", response.data.token);  // ✅ Save to localStorage
-  setMessage("Login successful!");
-  setTimeout(() => {
-    navigate("/dashboard");
-  }, 300);
-}
+    if (response.status === 200 && response.data.token) {
+      localStorage.setItem("token", response.data.token); // ✅ Save token
+      setMessage("Login successful!");
 
-
-    } catch (error) {
-      console.error("Login error:", error.response?.data || error.message);
-      setMessage(
-        error.response?.data?.message ||
-          "Login failed. Please check your credentials."
-      );
+      // ✅ Force full reload so ProtectedRoute works
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
     }
-  };
+  } catch (error) {
+    console.error("Login error:", error.response?.data || error.message);
+    setMessage(
+      error.response?.data?.message ||
+        "Login failed. Please check your credentials."
+    );
+  }
+};
+
 
   const toggleShowPassword = () => {
     setShowPassword((prev) => !prev);

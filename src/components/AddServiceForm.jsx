@@ -84,6 +84,19 @@ const styles = {
     boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
     transition: "transform 0.2s",
   },
+  backButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "10px 18px",
+    backgroundColor: "#ffffff",
+    color: "#003366",
+    border: "2px solid #003366",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.95rem",
+    transition: "all 0.3s ease",
+  },
 };
 
 const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -114,9 +127,7 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
           const res = await fetch(`${BASE_URL}/provider-services/dashboard/services/${serviceId}`, {
             credentials: "include",
           });
-          if (!res.ok) {
-            throw new Error("Failed to fetch service");
-          }
+          if (!res.ok) throw new Error("Failed to fetch service");
           const service = await res.json();
           setFormData({
             serviceName: service.serviceName || "",
@@ -127,9 +138,9 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
             location: service.location || "",
             contact: service.contact || "",
             aadhaarNumber: service.aadhaarNumber || "",
-            aadhaarFile: null, // Files can't be pre-populated
+            aadhaarFile: null,
             licenseNumber: service.licenseNumber || "",
-            licenseFile: null, // Files can't be pre-populated
+            licenseFile: null,
             photos: service.photos || [],
             _id: service._id || "",
           });
@@ -182,15 +193,9 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
     formDataToSend.append("aadhaarNumber", formData.aadhaarNumber);
     formDataToSend.append("licenseNumber", formData.licenseNumber);
 
-    if (formData.aadhaarFile) {
-      formDataToSend.append("aadhaarFile", formData.aadhaarFile);
-    }
-    if (formData.licenseFile) {
-      formDataToSend.append("licenseFile", formData.licenseFile);
-    }
-    formData.photos.forEach((photo) => {
-      formDataToSend.append("photos", photo);
-    });
+    if (formData.aadhaarFile) formDataToSend.append("aadhaarFile", formData.aadhaarFile);
+    if (formData.licenseFile) formDataToSend.append("licenseFile", formData.licenseFile);
+    formData.photos.forEach((photo) => formDataToSend.append("photos", photo));
 
     try {
       const token = localStorage.getItem("token");
@@ -201,9 +206,7 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         credentials: "include",
         body: formDataToSend,
       });
@@ -211,12 +214,13 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
       if (response.ok) {
         const result = await response.json();
         if (serviceId) {
-          onUpdate(result.service); // Call onUpdate for edit
+          onUpdate(result.service);
           alert("Service Updated Successfully!");
         } else {
-          onAdd(result.service); // Call onAdd for new service
+          onAdd(result.service);
           alert("Service Added Successfully!");
         }
+
         setFormData({
           serviceName: "",
           category: "",
@@ -232,6 +236,7 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
           photos: [],
           _id: "",
         });
+        navigate("/dashboard");
       } else {
         const errorData = await response.json();
         alert(`Failed to ${serviceId ? "update" : "add"} service: ${errorData.msg || "Please try again."}`);
@@ -245,10 +250,31 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
   return (
     <div style={styles.pageWrapper}>
       <div style={styles.formContainer}>
+        {/* Top-Left Back Button */}
+        {serviceId && (
+          <div style={{ textAlign: "left", marginBottom: "20px" }}>
+            <button
+              onClick={() => navigate("/dashboard")}
+              style={styles.backButton}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#003366";
+                e.currentTarget.style.color = "#ffffff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "#ffffff";
+                e.currentTarget.style.color = "#003366";
+              }}
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+        )}
+
         <h2 style={{ color: "#003366", marginBottom: "20px" }}>
           {serviceId ? "Edit Service" : "Add New Service"}
         </h2>
 
+        {/* Form Fields */}
         {[
           ["Service Name", "serviceName"],
           ["Category", "category"],
@@ -327,12 +353,8 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
                 src={typeof file === "string" ? file : URL.createObjectURL(file)}
                 alt={`Preview ${idx}`}
                 style={styles.photoPreview}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.transform = "scale(1.05)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.transform = "scale(1)")
-                }
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
               />
             ))}
           </div>
@@ -341,12 +363,8 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
         <button
           style={styles.submitButton}
           onClick={handleSubmit}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#1c80e3")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "#3399ff")
-          }
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#1c80e3")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#3399ff")}
         >
           {serviceId ? "Update Service" : "Add Service"}
         </button>
