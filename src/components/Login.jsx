@@ -103,7 +103,7 @@ const Login = () => {
       background: "none",
       border: "none",
       cursor: "pointer",
-      fontSize: "14px", // Smaller font size for simpler icon
+      fontSize: "14px",
       color: "#444",
     },
     checkboxContainer: {
@@ -169,16 +169,20 @@ const Login = () => {
         {
           headers: {
             "Content-Type": "application/json",
-          
           },
-          withCredentials: true, // Ensure cookies are sent with the request
+          withCredentials: true,
         }
       );
 
-      if (response.status === 200) {
-        setMessage("Login successful!");
-        navigate("/dashboard");
-      }
+ if (response.status === 200 && response.data.token) {
+  localStorage.setItem("token", response.data.token);  // ✅ Save to localStorage
+  setMessage("Login successful!");
+  setTimeout(() => {
+    navigate("/dashboard");
+  }, 300);
+}
+
+
     } catch (error) {
       console.error("Login error:", error.response?.data || error.message);
       setMessage(
@@ -199,7 +203,9 @@ const Login = () => {
         <div style={styles.leftPanel}>
           <div>
             <div style={styles.logo}>
-              <img src="" alt="" />
+              {/* Optional logo */}
+              {/* <img src="/logo.png" alt="ServeNow Logo" style={{ width: "100px" }} /> */}
+              ServeNow
             </div>
             <div style={styles.welcomeText}>Hello ServeNow Provider</div>
             <div style={styles.welcomeDescription}>
@@ -248,11 +254,6 @@ const Login = () => {
                 {showPassword ? "🙈" : "👁"}
               </button>
             </div>
-
-            {/* <div style={styles.checkboxContainer}>
-              <input type="checkbox" style={styles.checkbox} />
-              <label style={styles.checkboxLabel}>Remember me</label>
-            </div> */}
 
             <button type="submit" style={styles.button}>
               LOGIN

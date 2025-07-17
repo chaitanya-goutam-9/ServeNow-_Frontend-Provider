@@ -17,6 +17,8 @@ import EarningsReport from "../pages/EarningsReport";
 import Support from "../pages/Support";
 import AddServiceForm from "../components/AddServiceForm";
 
+const BASE_URL = "http://localhost:5000/api";
+
 const styles = {
   dashboard: {
     display: "flex",
@@ -25,8 +27,6 @@ const styles = {
     overflow: "hidden",
     fontFamily: "Arial, sans-serif",
     backgroundColor: "#f0f8ff",
-    boxSizing: "border-box",
-    margin: 0,
     position: "absolute",
     top: 0,
     left: 0,
@@ -64,7 +64,6 @@ const styles = {
     cursor: "pointer",
     padding: "10px",
     borderRadius: "4px",
-    transition: "background 0.3s",
     textDecoration: "none",
     color: "#003366",
     display: "flex",
@@ -100,8 +99,6 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    width: "100%",
-    boxSizing: "border-box",
   },
   addButton: {
     padding: "10px 15px",
@@ -115,7 +112,6 @@ const styles = {
   },
   contentArea: {
     padding: "20px",
-    // backgroundColor: "#f0f8ff",
     flex: 1,
     width: "100%",
     boxSizing: "border-box",
@@ -128,7 +124,6 @@ const styles = {
     backgroundColor: "#f0f8ff",
     flex: 1,
     width: "100%",
-    boxSizing: "border-box",
   },
   card: {
     background: "white",
@@ -174,34 +169,67 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedServices = JSON.parse(localStorage.getItem("services")) || [];
-    setCards(savedServices);
+    const fetchServices = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/provider-services/dashboard/services`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        setCards(data.services || []);
+      } catch (error) {
+        console.error("Failed to fetch provider services:", error.message);
+      }
+    };
+    fetchServices();
   }, []);
 
   const handleLogout = () => {
-    alert("Logging out...");
+    localStorage.removeItem("token");
+    alert("Logged out");
+    navigate("/login");
   };
 
-  const handleDelete = (index) => {
-    const updatedCards = [...cards];
-    updatedCards.splice(index, 1);
-    setCards(updatedCards);
-    localStorage.setItem("services", JSON.stringify(updatedCards));
+  const handleDelete = async (index, serviceId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`${BASE_URL}/provider-services/dashboard/services/${serviceId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+      });
+      const updatedCards = [...cards];
+      updatedCards.splice(index, 1);
+      setCards(updatedCards);
+    } catch (error) {
+      console.error("Failed to delete service:", error.message);
+    }
   };
 
   const handleEdit = (index) => {
-    navigate(`/add-service/${index}`);
+    const serviceId = cards[index]._id; // Use service _id instead of index
+    navigate(`/add-service/${serviceId}`);
   };
 
   const handleServiceClick = (service) => {
     setSelectedService(service);
   };
 
-  const handleAddService = (newService) => {
-    const updatedCards = [...cards, newService];
-    setCards(updatedCards);
-    localStorage.setItem("services", JSON.stringify(updatedCards));
+  const handleAddService = async (newService) => {
+    setCards((prevCards) => [...prevCards, newService]);
     setSelectedService(null);
+    navigate("/dashboard");
+  };
+
+  const handleUpdateService = (updatedService) => {
+    setCards((prevCards) =>
+      prevCards.map((card) =>
+        card._id === updatedService._id ? updatedService : card
+      )
+    );
+    setSelectedService(null);
+    navigate("/dashboard");
   };
 
   const renderContent = () => {
@@ -209,7 +237,7 @@ const Dashboard = () => {
       return (
         <section style={styles.cards}>
           {cards.map((card, index) => (
-            <div key={index} style={styles.card}>
+            <div key={card._id} style={styles.card}>
               <h3>{card.serviceName || card.title || card.category}</h3>
               <p>{card.description}</p>
               {card.price && (
@@ -228,6 +256,23 @@ const Dashboard = () => {
                   <strong>Location:</strong> {card.location}
                 </p>
               )}
+              {card.status && (
+                <p>
+                  <strong>Status:</strong>{" "}
+                  <span
+                    style={{
+                      color:
+                        card.status === "approved"
+                          ? "green"
+                          : card.status === "pending"
+                          ? "orange"
+                          : "red",
+                    }}
+                  >
+                    {card.status.toUpperCase()}
+                  </span>
+                </p>
+              )}
               <div style={styles.cardActions}>
                 <button
                   style={{ ...styles.actionButton, ...styles.editButton }}
@@ -237,7 +282,7 @@ const Dashboard = () => {
                 </button>
                 <button
                   style={{ ...styles.actionButton, ...styles.deleteButton }}
-                  onClick={() => handleDelete(index)}
+                  onClick={() => handleDelete(index, card._id)}
                 >
                   🗑️ Delete
                 </button>
@@ -252,7 +297,10 @@ const Dashboard = () => {
     return (
       <section style={styles.contentArea}>
         {SelectedComponent === AddServiceForm ? (
-          <SelectedComponent onSubmit={handleAddService} />
+          <SelectedComponent
+            onAdd={handleAddService}
+            onUpdate={handleUpdateService}
+          />
         ) : (
           <SelectedComponent />
         )}

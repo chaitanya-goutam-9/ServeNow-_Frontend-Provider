@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+
+const BASE_URL = "http://localhost:5000/api";
 
 const styles = {
   pageWrapper: {
@@ -82,9 +85,12 @@ const styles = {
     transition: "transform 0.2s",
   },
 };
+
 const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const AddServiceForm = () => {
+const AddServiceForm = ({ onAdd, onUpdate }) => {
+  const { serviceId } = useParams();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     serviceName: "",
     category: "",
@@ -98,7 +104,43 @@ const AddServiceForm = () => {
     licenseNumber: "",
     licenseFile: null,
     photos: [],
+    _id: "",
   });
+
+  useEffect(() => {
+    if (serviceId) {
+      const fetchService = async () => {
+        try {
+          const res = await fetch(`${BASE_URL}/provider-services/dashboard/services/${serviceId}`, {
+            credentials: "include",
+          });
+          if (!res.ok) {
+            throw new Error("Failed to fetch service");
+          }
+          const service = await res.json();
+          setFormData({
+            serviceName: service.serviceName || "",
+            category: service.category || "",
+            price: service.price || "",
+            duration: service.duration || "",
+            availableDays: service.availableDays || [],
+            location: service.location || "",
+            contact: service.contact || "",
+            aadhaarNumber: service.aadhaarNumber || "",
+            aadhaarFile: null, // Files can't be pre-populated
+            licenseNumber: service.licenseNumber || "",
+            licenseFile: null, // Files can't be pre-populated
+            photos: service.photos || [],
+            _id: service._id || "",
+          });
+        } catch (error) {
+          console.error("Failed to fetch service:", error.message);
+          alert("Failed to load service data. Please try again.");
+        }
+      };
+      fetchService();
+    }
+  }, [serviceId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -127,13 +169,14 @@ const AddServiceForm = () => {
     }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     const formDataToSend = new FormData();
     formDataToSend.append("serviceName", formData.serviceName);
     formDataToSend.append("category", formData.category);
     formDataToSend.append("price", formData.price);
     formDataToSend.append("duration", formData.duration);
-    formDataToSend.append("availableDays", JSON.stringify(formData.availableDays));
+    formData.availableDays.forEach((day) => formDataToSend.append("availableDays[]", day));
     formDataToSend.append("location", formData.location);
     formDataToSend.append("contact", formData.contact);
     formDataToSend.append("aadhaarNumber", formData.aadhaarNumber);
@@ -150,14 +193,30 @@ const AddServiceForm = () => {
     });
 
     try {
-      const response = await fetch("http://localhost:5000/api/provider-services/submit", {
-        method: "POST",
-        credentials: "include", // Send cookies with the request
+      const token = localStorage.getItem("token");
+      const url = serviceId
+        ? `${BASE_URL}/provider-services/dashboard/services/${serviceId}`
+        : `${BASE_URL}/provider-services/submit`;
+      const method = serviceId ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
         body: formDataToSend,
       });
 
       if (response.ok) {
-        alert("Service Added Successfully!");
+        const result = await response.json();
+        if (serviceId) {
+          onUpdate(result.service); // Call onUpdate for edit
+          alert("Service Updated Successfully!");
+        } else {
+          onAdd(result.service); // Call onAdd for new service
+          alert("Service Added Successfully!");
+        }
         setFormData({
           serviceName: "",
           category: "",
@@ -171,14 +230,15 @@ const AddServiceForm = () => {
           licenseNumber: "",
           licenseFile: null,
           photos: [],
+          _id: "",
         });
       } else {
         const errorData = await response.json();
-        alert(`Failed to add service: ${errorData.msg || "Please try again."}`);
+        alert(`Failed to ${serviceId ? "update" : "add"} service: ${errorData.msg || "Please try again."}`);
       }
     } catch (error) {
+      console.error(`Error ${serviceId ? "updating" : "adding"} service:`, error);
       alert("Server error. Try again later.");
-      console.error("Error:", error);
     }
   };
 
@@ -186,7 +246,7 @@ const AddServiceForm = () => {
     <div style={styles.pageWrapper}>
       <div style={styles.formContainer}>
         <h2 style={{ color: "#003366", marginBottom: "20px" }}>
-          Add New Service
+          {serviceId ? "Edit Service" : "Add New Service"}
         </h2>
 
         {[
@@ -235,7 +295,6 @@ const AddServiceForm = () => {
             type="file"
             accept=".jpg,.jpeg,.png,.pdf"
             onChange={(e) => handleFileChange(e, "aadhaarFile")}
-            required
           />
         </div>
 
@@ -246,7 +305,6 @@ const AddServiceForm = () => {
             type="file"
             accept=".jpg,.jpeg,.png,.pdf"
             onChange={(e) => handleFileChange(e, "licenseFile")}
-            required
           />
         </div>
 
@@ -266,7 +324,7 @@ const AddServiceForm = () => {
             {formData.photos.map((file, idx) => (
               <img
                 key={idx}
-                src={URL.createObjectURL(file)}
+                src={typeof file === "string" ? file : URL.createObjectURL(file)}
                 alt={`Preview ${idx}`}
                 style={styles.photoPreview}
                 onMouseEnter={(e) =>
@@ -290,7 +348,7 @@ const AddServiceForm = () => {
             (e.currentTarget.style.backgroundColor = "#3399ff")
           }
         >
-          Add Service
+          {serviceId ? "Update Service" : "Add Service"}
         </button>
       </div>
     </div>
