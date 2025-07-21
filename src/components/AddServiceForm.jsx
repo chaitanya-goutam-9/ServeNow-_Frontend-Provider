@@ -351,7 +351,7 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
               <img
                 key={idx}
                 src={typeof file === "string" ? file : URL.createObjectURL(file)}
-                alt={`Preview ${idx}`}
+                alt={`Preview ₹{idx}`}
                 style={styles.photoPreview}
                 onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
