@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Home,
   Plus,
@@ -11,12 +11,6 @@ import {
   LogOut,
   User,
 } from "lucide-react";
-import ManageBookings from "../pages/ManageBookings";
-import ServiceHistory from "../pages/ServiceHistory";
-import Messages from "../pages/Messages";
-import EarningsReport from "../pages/EarningsReport";
-import Support from "../pages/Support";
-import AddServiceForm from "../components/AddServiceForm";
 
 const BASE_URL = "http://localhost:5000/api";
 
@@ -233,57 +227,187 @@ const styles = {
   submitButtonHover: {
     backgroundColor: "#1d4ed8",
   },
+  errorMessage: {
+    color: "#ef4444",
+    fontSize: "0.9rem",
+    marginBottom: "16px",
+    textAlign: "center",
+  },
+  successMessage: {
+    color: "#10b981",
+    fontSize: "0.9rem",
+    marginBottom: "16px",
+    textAlign: "center",
+  },
+  loadingMessage: {
+    color: "#2563eb",
+    fontSize: "1.1rem",
+    textAlign: "center",
+    padding: "24px",
+  },
 };
 
-const ProfileManagement = ({ onProfileUpdate }) => {
-  const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    profilePicture: "",
-  });
+const ProfileManagement = ({ onProfileUpdate, initialProfile, onBackToDashboard }) => {
+  const [profile, setProfile] = useState(
+    initialProfile || {
+      name: "",
+      email: "",
+      phone: "",
+      status: "",
+      profileImage: "",
+    }
+  );
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
+    setError("");
+    setSuccess("");
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    setError("");
+    setSuccess("");
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile((prev) => ({ ...prev, profilePicture: reader.result }));
-        onProfileUpdate({ ...profile, profilePicture: reader.result });
-      };
-      reader.readAsDataURL(file);
+      const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+      if (!allowedTypes.includes(file.type)) {
+        setError("Please select a valid image file (JPG or PNG)");
+        e.target.value = "";
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File size must be less than 5MB");
+        e.target.value = "";
+        return;
+      }
+      setProfile((prev) => ({ ...prev, profileImage: file }));
+      setError("");
+      setSuccess("");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!profile.name?.trim()) {
+      setError("Name is required");
+      return;
+    }
+
+    if (!profile.email?.trim()) {
+      setError("Email is required");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profile.email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
+
     try {
       const token = localStorage.getItem("token");
-      await fetch(`${BASE_URL}/provider-services/profile`, {
+      if (!token) {
+        setError("No authentication token found. Please log in.");
+        navigate("/login");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("name", profile.name.trim());
+      formData.append("email", profile.email.trim());
+      formData.append("phone", profile.phone.trim());
+      formData.append("status", profile.status.trim());
+
+      if (password.trim()) {
+        formData.append("password", password.trim());
+      }
+
+      if (profile.profileImage instanceof File) {
+        formData.append("profileImage", profile.profileImage);
+      }
+
+      console.log("Sending profile update request...");
+
+      const res = await fetch(`${BASE_URL}/provider/profile`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
-        credentials: "include",
-        body: JSON.stringify(profile),
+        body: formData,
       });
-      onProfileUpdate(profile);
+
+      const data = await res.json();
+      console.log("Profile update response:", data);
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Unauthorized: Invalid or expired token. Please log in again.");
+          localStorage.removeItem("token");
+          navigate("/login");
+        } else if (res.status === 404) {
+          setError("Profile not found. Please contact support.");
+        } else if (res.status === 400) {
+          setError(data.msg || data.error || "Bad request. Please check your input.");
+        } else {
+          setError(data.msg || "Failed to update profile. Please try again.");
+        }
+        return;
+      }
+
+      setSuccess("Profile updated successfully!");
+      setPassword("");
+
+      if (onProfileUpdate && data.provider) {
+        onProfileUpdate(data.provider);
+      }
+
+      if (data.provider) {
+        setProfile({
+          name: data.provider.name || "",
+          email: data.provider.email || "",
+          phone: data.provider.phone || "",
+          status: data.provider.status || "",
+          profileImage: data.provider.profileImage || "",
+        });
+      }
+
+      if (onBackToDashboard) {
+        setTimeout(() => {
+          onBackToDashboard();
+          setSuccess("");
+        }, 1000);
+      }
     } catch (error) {
-      console.error("Failed to update profile:", error.message);
+      console.error("Profile update error:", error);
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div style={styles.profileForm}>
       <h2 style={styles.profileFormHeader}>Manage Your Profile</h2>
+      {error && <p style={styles.errorMessage}>{error}</p>}
+      {success && <p style={styles.successMessage}>{success}</p>}
       <form onSubmit={handleSubmit}>
         <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Full Name</label>
+          <label style={styles.formLabel}>Full Name *</label>
           <input
             type="text"
             name="name"
@@ -291,12 +415,14 @@ const ProfileManagement = ({ onProfileUpdate }) => {
             onChange={handleChange}
             style={styles.formInput}
             placeholder="Enter your full name"
+            required
+            disabled={isSubmitting}
             onFocus={(e) => Object.assign(e.target.style, styles.formInputFocus)}
             onBlur={(e) => Object.assign(e.target.style, { borderColor: "#d1e0ff", boxShadow: "none" })}
           />
         </div>
         <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Email Address</label>
+          <label style={styles.formLabel}>Email Address *</label>
           <input
             type="email"
             name="email"
@@ -304,44 +430,141 @@ const ProfileManagement = ({ onProfileUpdate }) => {
             onChange={handleChange}
             style={styles.formInput}
             placeholder="Enter your email address"
+            required
+            disabled={isSubmitting}
             onFocus={(e) => Object.assign(e.target.style, styles.formInputFocus)}
             onBlur={(e) => Object.assign(e.target.style, { borderColor: "#d1e0ff", boxShadow: "none" })}
           />
         </div>
         <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Profile Picture</label>
+          <label style={styles.formLabel}>Phone</label>
+          <input
+            type="text"
+            name="phone"
+            value={profile.phone}
+            onChange={handleChange}
+            style={styles.formInput}
+            placeholder="Enter your phone number"
+            disabled={isSubmitting}
+            onFocus={(e) => Object.assign(e.target.style, styles.formInputFocus)}
+            onBlur={(e) => Object.assign(e.target.style, { borderColor: "#d1e0ff", boxShadow: "none" })}
+          />
+        </div>
+        <div style={styles.formGroup}>
+          <label style={styles.formLabel}>Status</label>
+          <input
+            type="text"
+            name="status"
+            value={profile.status}
+            onChange={handleChange}
+            style={styles.formInput}
+            placeholder="Enter your status"
+            disabled={isSubmitting}
+            onFocus={(e) => Object.assign(e.target.style, styles.formInputFocus)}
+            onBlur={(e) => Object.assign(e.target.style, { borderColor: "#d1e0ff", boxShadow: "none" })}
+          />
+        </div>
+        <div style={styles.formGroup}>
+          <label style={styles.formLabel}>New Password (leave blank to keep current)</label>
+          <input
+            type="password"
+            value={password}
+            onChange={handlePasswordChange}
+            style={styles.formInput}
+            placeholder="Enter new password"
+            disabled={isSubmitting}
+            onFocus={(e) => Object.assign(e.target.style, styles.formInputFocus)}
+            onBlur={(e) => Object.assign(e.target.style, { borderColor: "#d1e0ff", boxShadow: "none" })}
+          />
+        </div>
+        <div style={styles.formGroup}>
+          <label style={styles.formLabel}>Profile Image (JPG/PNG, max 5MB)</label>
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/jpg"
             onChange={handleFileChange}
             style={styles.fileInput}
+            disabled={isSubmitting}
           />
-          {profile.profilePicture && (
-            <img
-              src={profile.profilePicture}
-              alt="Profile Preview"
-              style={{
-                ...styles.profileImage,
-                marginTop: "12px",
-                display: "block",
-                marginLeft: "auto",
-                marginRight: "auto",
-              }}
-            />
+          {profile.profileImage && typeof profile.profileImage === "string" && (
+            <div style={{ marginTop: "12px", textAlign: "center" }}>
+              <img
+                src={profile.profileImage}
+                alt="Profile Preview"
+                style={{
+                  ...styles.profileImage,
+                  width: "80px",
+                  height: "80px",
+                  display: "block",
+                  marginLeft: "auto",
+                  marginRight: "auto",
+                }}
+              />
+              <p style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: "4px" }}>
+                Current profile image
+              </p>
+            </div>
           )}
         </div>
         <button
           type="submit"
-          style={styles.submitButton}
-          onMouseOver={(e) => Object.assign(e.target.style, styles.submitButtonHover)}
-          onMouseOut={(e) => Object.assign(e.target.style, { backgroundColor: "#2563eb" })}
+          style={{
+            ...styles.submitButton,
+            backgroundColor: isSubmitting ? "#9ca3af" : "#2563eb",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
+          }}
+          disabled={isSubmitting}
+          onMouseOver={(e) => !isSubmitting && Object.assign(e.target.style, styles.submitButtonHover)}
+          onMouseOut={(e) => !isSubmitting && Object.assign(e.target.style, { backgroundColor: "#2563eb" })}
         >
-          Save Profile
+          {isSubmitting ? "Updating..." : "Save Profile"}
         </button>
       </form>
     </div>
   );
 };
+
+const AddServiceForm = ({ onAdd, onUpdate }) => (
+  <div style={styles.contentArea}>
+    <h2>Add New Service</h2>
+    <p>Service form component would go here...</p>
+  </div>
+);
+
+const ManageBookings = () => (
+  <div style={styles.contentArea}>
+    <h2>Manage Bookings</h2>
+    <p>Bookings management component would go here...</p>
+  </div>
+);
+
+const ServiceHistory = () => (
+  <div style={styles.contentArea}>
+    <h2>Service History</h2>
+    <p>Service history component would go here...</p>
+  </div>
+);
+
+const Messages = () => (
+  <div style={styles.contentArea}>
+    <h2>Messages</h2>
+    <p>Messages component would go here...</p>
+  </div>
+);
+
+const EarningsReport = () => (
+  <div style={styles.contentArea}>
+    <h2>Earnings Report</h2>
+    <p>Earnings report component would go here...</p>
+  </div>
+);
+
+const Support = () => (
+  <div style={styles.contentArea}>
+    <h2>Support</h2>
+    <p>Support component would go here...</p>
+  </div>
+);
 
 const providerServices = [
   { name: "Dashboard Home", component: null, icon: <Home size={18} /> },
@@ -360,42 +583,112 @@ const Dashboard = () => {
   const [profile, setProfile] = useState({
     name: "",
     email: "",
-    profilePicture: "",
+    phone: "",
+    status: "",
+    profileImage: "",
   });
+  const [error, setError] = useState("");
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("useEffect running for fetchServices and fetchProfile");
+
     const fetchServices = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/provider-services/dashboard/services`, {
-          credentials: "include",
+        setIsLoadingServices(true);
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setError("No authentication token found. Please log in.");
+          navigate("/login");
+          return;
+        }
+        const res = await fetch(`${BASE_URL}/provider/dashboard/services`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         });
+        if (!res.ok) {
+          if (res.status === 401) {
+            setError("Unauthorized: Invalid or expired token. Please log in again.");
+            localStorage.removeItem("token");
+            navigate("/login");
+          } else {
+            setError("Failed to fetch services. Please try again.");
+          }
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
         const data = await res.json();
-        setCards(data.services || []);
+        if (data.success) {
+          setCards(data.services || []);
+          setError("");
+        } else {
+          setError(data.msg || "Failed to fetch services.");
+        }
       } catch (error) {
         console.error("Failed to fetch provider services:", error.message);
+        setError("An error occurred while fetching services.");
+      } finally {
+        setIsLoadingServices(false);
       }
     };
 
     const fetchProfile = async () => {
       try {
+        setIsLoadingProfile(true);
         const token = localStorage.getItem("token");
-        const res = await fetch(`${BASE_URL}/provider-services/profile`, {
-          credentials: "include",
+        if (!token) {
+          setError("No authentication token found. Please log in.");
+          navigate("/login");
+          return;
+        }
+        console.log("Fetching profile with token:", token);
+        const res = await fetch(`${BASE_URL}/provider/profile`, {
+          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         });
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.log("Error response body:", errorData);
+          if (res.status === 401) {
+            setError("Unauthorized: Invalid or expired token. Please log in again.");
+            localStorage.removeItem("token");
+            navigate("/login");
+          } else if (res.status === 404) {
+            setError("Profile endpoint not found or user does not exist. Contact support.");
+            console.log("Attempted to fetch profile from:", `${BASE_URL}/provider/profile`);
+          } else {
+            setError("Failed to fetch profile. Please try again.");
+          }
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
         const data = await res.json();
-        setProfile(data.profile || {});
+        console.log("Profile data received:", data);
+        setProfile({
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          status: data.status || "",
+          profileImage: data.profileImage || "",
+        });
+        setError("");
       } catch (error) {
         console.error("Failed to fetch profile:", error.message);
+        setError("An error occurred while fetching your profile.");
+      } finally {
+        setIsLoadingProfile(false);
       }
     };
 
     fetchServices();
     fetchProfile();
-  }, []);
+  }, [navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -405,18 +698,35 @@ const Dashboard = () => {
   const handleDelete = async (index, serviceId) => {
     try {
       const token = localStorage.getItem("token");
-      await fetch(`${BASE_URL}/provider-services/dashboard/services/${serviceId}`, {
+      if (!token) {
+        setError("No authentication token found. Please log in.");
+        navigate("/login");
+        return;
+      }
+      const res = await fetch(`${BASE_URL}/provider/dashboard/services/${serviceId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        credentials: "include",
       });
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Unauthorized: Invalid or expired token. Please log in again.");
+          localStorage.removeItem("token");
+          navigate("/login");
+        } else {
+          setError("Failed to delete service. Please try again.");
+        }
+        throw new Error(`HTTP error! Status: ${res.status}`);
+      }
       const updatedCards = [...cards];
       updatedCards.splice(index, 1);
       setCards(updatedCards);
+      setError("");
     } catch (error) {
       console.error("Failed to delete service:", error.message);
+      setError("An error occurred while deleting the service.");
     }
   };
 
@@ -427,6 +737,7 @@ const Dashboard = () => {
 
   const handleServiceClick = (service) => {
     setSelectedService(service);
+    setError("");
   };
 
   const handleAddService = (newService) => {
@@ -444,15 +755,26 @@ const Dashboard = () => {
   };
 
   const handleProfileUpdate = (updatedProfile) => {
-    setProfile(updatedProfile);
+    console.log("Profile updated in parent:", updatedProfile);
+    setProfile({
+      name: updatedProfile.name || "",
+      email: updatedProfile.email || "",
+      phone: updatedProfile.phone || "",
+      status: updatedProfile.status || "",
+      profileImage: updatedProfile.profileImage || "",
+    });
+  };
+
+  const handleBackToDashboard = () => {
     setSelectedService(null);
-    navigate("/dashboard");
   };
 
   const renderContent = () => (
     !selectedService || selectedService.component === null ? (
       <section style={styles.cards}>
-        {cards.length === 0 ? (
+        {isLoadingServices && <p style={styles.loadingMessage}>Loading services...</p>}
+        {error && <p style={styles.errorMessage}>{error}</p>}
+        {!isLoadingServices && cards.length === 0 ? (
           <p style={{ padding: "24px", fontSize: "1.1rem", color: "#6b7280", textAlign: "center" }}>
             No services found. Please add your first service.
           </p>
@@ -461,33 +783,66 @@ const Dashboard = () => {
             <div
               key={card._id}
               style={styles.card}
-              onMouseOver={(e) => Object.assign(e.currentTarget.style, {
-                transform: "scale(1.02)",
-                boxShadow: "0 6px 16px rgba(0, 0, 0, 0.12)",
-              })}
-              onMouseOut={(e) => Object.assign(e.currentTarget.style, {
-                transform: "scale(1)",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-              })}
+              onMouseOver={(e) =>
+                Object.assign(e.currentTarget.style, {
+                  transform: "scale(1.02)",
+                  boxShadow: "0 6px 16px rgba(0, 0, 0, 0.12)",
+                })
+              }
+              onMouseOut={(e) =>
+                Object.assign(e.currentTarget.style, {
+                  transform: "scale(1)",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                })
+              }
             >
-              <h3 style={{ color: "#1a3c6e", marginBottom: "10px", fontSize: "1.2rem", fontWeight: "600" }}>
+              <h3
+                style={{
+                  color: "#1a3c6e",
+                  marginBottom: "10px",
+                  fontSize: "1.2rem",
+                  fontWeight: "600",
+                }}
+              >
                 {card.serviceName || card.title || card.category}
               </h3>
-              <p style={{ color: "#4b5e8e", lineHeight: "1.5" }}><strong>Description:</strong> {card.description}</p>
-              {card.price && <p style={{ color: "#4b5e8e" }}><strong>Price:</strong> ₹{card.price}</p>}
-              {card.category && <p style={{ color: "#4b5e8e" }}><strong>Category:</strong> {card.category}</p>}
-              {card.availableDays?.length > 0 && (
-                <p style={{ color: "#4b5e8e" }}><strong>Available Days:</strong> {card.availableDays.join(", ")}</p>
+              <p style={{ color: "#4b5e8e", lineHeight: "1.5" }}>
+                <strong>Description:</strong> {card.description}
+              </p>
+              {card.price && (
+                <p style={{ color: "#4b5e8e" }}>
+                  <strong>Price:</strong> ₹{card.price}
+                </p>
               )}
-              {card.location && <p style={{ color: "#4b5e8e" }}><strong>Location:</strong> {card.location}</p>}
+              {card.category && (
+                <p style={{ color: "#4b5e8e" }}>
+                  <strong>Category:</strong> {card.category}
+                </p>
+              )}
+              {card.availableDays?.length > 0 && (
+                <p style={{ color: "#4b5e8e" }}>
+                  <strong>Available Days:</strong> {card.availableDays.join(", ")}
+                </p>
+              )}
+              {card.location && (
+                <p style={{ color: "#4b5e8e" }}>
+                  <strong>Location:</strong> {card.location}
+                </p>
+              )}
               {card.status && (
                 <p style={{ color: "#4b5e8e" }}>
                   <strong>Status:</strong>{" "}
-                  <span style={{
-                    color: card.status === "approved" ? "#10b981" :
-                          card.status === "pending" ? "#f59e0b" : "#ef4444",
-                    fontWeight: "600",
-                  }}>
+                  <span
+                    style={{
+                      color:
+                        card.status === "approved"
+                          ? "#10b981"
+                          : card.status === "pending"
+                          ? "#f59e0b"
+                          : "#ef4444",
+                      fontWeight: "600",
+                    }}
+                  >
                     {card.status.toUpperCase()}
                   </span>
                 </p>
@@ -522,7 +877,11 @@ const Dashboard = () => {
             onUpdate={handleUpdateService}
           />
         ) : selectedService.component === ProfileManagement ? (
-          <selectedService.component onProfileUpdate={handleProfileUpdate} />
+          <selectedService.component
+            onProfileUpdate={handleProfileUpdate}
+            initialProfile={profile}
+            onBackToDashboard={handleBackToDashboard}
+          />
         ) : (
           <selectedService.component />
         )}
@@ -539,16 +898,24 @@ const Dashboard = () => {
             {providerServices.map((service, index) => (
               <li
                 key={index}
-                style={styles.serviceItem}
+                style={{
+                  ...styles.serviceItem,
+                  backgroundColor: selectedService?.name === service.name ? "#e6f0ff" : "transparent",
+                  color: selectedService?.name === service.name ? "#2563eb" : "#1a3c6e",
+                }}
                 onClick={() => handleServiceClick(service)}
-                onMouseOver={(e) => Object.assign(e.currentTarget.style, {
-                  backgroundColor: "#e6f0ff",
-                  color: "#2563eb",
-                })}
-                onMouseOut={(e) => Object.assign(e.currentTarget.style, {
-                  backgroundColor: "transparent",
-                  color: "#1a3c6e",
-                })}
+                onMouseOver={(e) =>
+                  Object.assign(e.currentTarget.style, {
+                    backgroundColor: "#e6f0ff",
+                    color: "#2563eb",
+                  })
+                }
+                onMouseOut={(e) =>
+                  Object.assign(e.currentTarget.style, {
+                    backgroundColor: selectedService?.name === service.name ? "#e6f0ff" : "transparent",
+                    color: selectedService?.name === service.name ? "#2563eb" : "#1a3c6e",
+                  })
+                }
               >
                 {service.icon}
                 <span>{service.name}</span>
@@ -569,19 +936,27 @@ const Dashboard = () => {
 
       <main style={styles.mainContent}>
         <header style={styles.header}>
-          <span><strong>Provider</strong> Dashboard</span>
+          <span>
+            <strong>Provider</strong> Dashboard
+          </span>
           <div style={styles.profileContainer}>
-            {profile.name && <span style={styles.profileName}>{profile.name}</span>}
-            {profile.profilePicture ? (
+            {isLoadingProfile ? (
+              <p style={{ color: "#ffffff", margin: 0 }}>Loading...</p>
+            ) : profile.name ? (
+              <span style={styles.profileName}>{profile.name}</span>
+            ) : null}
+            {profile.profileImage ? (
               <img
-                src={profile.profilePicture}
+                src={profile.profileImage}
                 alt="Profile"
                 style={styles.profileImage}
                 onMouseOver={(e) => Object.assign(e.target.style, styles.profileImageHover)}
-                onMouseOut={(e) => Object.assign(e.target.style, {
-                  transform: "scale(1)",
-                  boxShadow: "none",
-                })}
+                onMouseOut={(e) =>
+                  Object.assign(e.target.style, {
+                    transform: "scale(1)",
+                    boxShadow: "none",
+                  })
+                }
               />
             ) : (
               <User

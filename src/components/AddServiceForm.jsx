@@ -1,3 +1,6 @@
+
+///////////////////////////////////////////////////////
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -66,7 +69,9 @@ const styles = {
   input: {
     flex: 1,
     padding: "14px 16px",
-    border: "2px solid #e5e7eb",
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "#e5e7eb",
     borderRadius: "12px",
     fontSize: "1rem",
     outline: "none",
@@ -77,7 +82,9 @@ const styles = {
   inputFull: {
     width: "100%",
     padding: "14px 16px",
-    border: "2px solid #e5e7eb",
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "#e5e7eb",
     borderRadius: "12px",
     fontSize: "1rem",
     outline: "none",
@@ -94,7 +101,9 @@ const styles = {
   textarea: {
     width: "100%",
     padding: "14px 16px",
-    border: "2px solid #e5e7eb",
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "#e5e7eb",
     borderRadius: "12px",
     fontSize: "1rem",
     resize: "vertical",
@@ -116,7 +125,9 @@ const styles = {
     alignItems: "center",
     padding: "12px 16px",
     backgroundColor: "#f8fafc",
-    border: "2px solid #e2e8f0",
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "#e2e8f0",
     borderRadius: "10px",
     cursor: "pointer",
     transition: "all 0.3s ease",
@@ -137,7 +148,9 @@ const styles = {
     accentColor: "#8b5cf6",
   },
   fileInputContainer: {
-    border: "3px dashed #d1d5db",
+    borderWidth: "3px",
+    borderStyle: "dashed",
+    borderColor: "#d1d5db",
     borderRadius: "12px",
     padding: "24px",
     textAlign: "center",
@@ -170,6 +183,22 @@ const styles = {
     fontSize: "0.875rem",
     color: "#9ca3af",
   },
+  locationButton: {
+    background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+    color: "white",
+    border: "none",
+    padding: "10px 20px",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    boxShadow: "0 2px 8px rgba(59, 130, 246, 0.3)",
+  },
+  locationButtonHover: {
+    transform: "translateY(-1px)",
+    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.4)",
+  },
   submitButton: {
     background: "linear-gradient(135deg, #10b981, #059669)",
     color: "white",
@@ -195,15 +224,19 @@ const styles = {
     marginTop: "20px",
     padding: "20px",
     backgroundColor: "#f8fafc",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "#e2e8f0",
     borderRadius: "12px",
-    border: "1px solid #e2e8f0",
   },
   photoPreview: {
     width: "100%",
     height: "120px",
     objectFit: "cover",
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "#e5e7eb",
     borderRadius: "8px",
-    border: "2px solid #e5e7eb",
     transition: "all 0.3s ease",
     cursor: "pointer",
   },
@@ -226,10 +259,20 @@ const styles = {
   spinner: {
     width: "50px",
     height: "50px",
-    border: "5px solid #f3f3f3",
-    borderTop: "5px solid #4f46e5",
+    borderWidth: "5px",
+    borderStyle: "solid",
+    borderColor: "#f3f3f3",
+    borderTopWidth: "5px",
+    borderTopStyle: "solid",
+    borderTopColor: "#4f46e5",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
+  },
+  errorMessage: {
+    color: "#ef4444",
+    fontSize: "0.9rem",
+    marginBottom: "16px",
+    textAlign: "center",
   },
 };
 
@@ -247,6 +290,7 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
   const { serviceId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [focusedInput, setFocusedInput] = useState(null);
   const [hoveredElements, setHoveredElements] = useState({});
 
@@ -260,59 +304,155 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
     contact: "",
     description: "",
     aadhaarNumber: "",
-    aadhaarFile: null,
+    aadhaar: null,
     licenseNumber: "",
-    licenseFile: null,
+    license: null,
     photos: [],
+    geoLocation: { type: "Point", coordinates: [0, 0] },
     _id: "",
   });
 
   // Inject CSS animation
   useEffect(() => {
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = spinKeyframes;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
 
+  // Log formData changes for debugging
+  useEffect(() => {
+    console.log("Current formData state:", JSON.stringify(formData, null, 2));
+  }, [formData]);
+
+  // Validate ObjectId format
+  const isValidObjectId = (id) => {
+    return /^[0-9a-fA-F]{24}$/.test(id);
+  };
+
   // Fetch service if editing
   useEffect(() => {
     if (serviceId) {
+      if (!isValidObjectId(serviceId)) {
+        console.error("Invalid serviceId format:", serviceId);
+        setError("Invalid service ID. Please check the URL and try again.");
+        return;
+      }
+
       const fetchService = async () => {
+        setLoading(true);
+        setError("");
         try {
-          const res = await fetch(`${BASE_URL}/provider-services/dashboard/services/${serviceId}`, {
-            credentials: "include",
+          const token = localStorage.getItem("token");
+          if (!token) {
+            setError("Authentication token is missing. Please log in again.");
+            navigate("/login");
+            return;
+          }
+
+          console.log("Fetching service with ID:", serviceId);
+          const res = await fetch(`${BASE_URL}/provider/dashboard/services/${serviceId}?t=${Date.now()}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache",
+            },
           });
-          if (!res.ok) throw new Error("Failed to fetch service");
-          const service = await res.json();
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            if (res.status === 401) {
+              setError("Unauthorized: Invalid or expired token. Please log in again.");
+              localStorage.removeItem("token");
+              navigate("/login");
+            } else if (res.status === 404) {
+              setError("Service not found or you are not authorized to view it.");
+            } else {
+              setError(`Failed to fetch service: ${errorData.msg || "Unknown error"}`);
+            }
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+
+          const response = await res.json();
+          console.log("Full API response:", JSON.stringify(response, null, 2));
+          const service = response.service; // Access nested service object
+          if (!service || !service._id) {
+            setError("Invalid service data received from the server.");
+            setLoading(false);
+            return;
+          }
+
           setFormData({
             serviceName: service.serviceName || "",
             category: service.category || "",
-            price: service.price || "",
+            price: service.price ? service.price.toString() : "",
             duration: service.duration || "",
-            availableDays: service.availableDays || [],
+            availableDays: Array.isArray(service.availableDays) ? service.availableDays : [],
             location: service.location || "",
             contact: service.contact || "",
             description: service.description || "",
             aadhaarNumber: service.aadhaarNumber || "",
-            aadhaarFile: null,
+            aadhaar: null, // File inputs are not pre-filled
             licenseNumber: service.licenseNumber || "",
-            licenseFile: null,
-            photos: service.photos || [],
+            license: null, // File inputs are not pre-filled
+            photos: Array.isArray(service.photos) ? service.photos : [],
+            geoLocation: service.geoLocation || { type: "Point", coordinates: [0, 0] },
             _id: service._id || "",
           });
         } catch (error) {
           console.error("Failed to fetch service:", error.message);
-          alert("Failed to load service data. Please try again.");
+          setError(`Failed to load service data: ${error.message}`);
+        } finally {
+          setLoading(false);
         }
       };
       fetchService();
     }
-  }, [serviceId]);
+  }, [serviceId, navigate]);
+
+  const getCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
+      const { latitude, longitude } = position.coords;
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+        { headers: { "User-Agent": "ServiceApp/1.0" } }
+      );
+      if (!response.ok) throw new Error("Failed to fetch address");
+
+      const data = await response.json();
+      const address = data.address;
+      const formattedAddress = `${address.city || address.town || address.village || "Unknown"}, ${address.state || "Unknown"}, ${address.country || "Unknown"}`;
+
+      setFormData((prev) => ({
+        ...prev,
+        location: formattedAddress,
+        geoLocation: { type: "Point", coordinates: [longitude, latitude] },
+      }));
+    } catch (error) {
+      console.error("Geolocation error:", error);
+      setError("Failed to get location. Please enter manually or try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError("");
   };
 
   const handleDayToggle = (day) => {
@@ -322,11 +462,13 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
         ? prev.availableDays.filter((d) => d !== day)
         : [...prev.availableDays, day],
     }));
+    setError("");
   };
 
   const handleFileChange = (e, field) => {
     const file = e.target.files[0];
     setFormData((prev) => ({ ...prev, [field]: file }));
+    setError("");
   };
 
   const handlePhotoUpload = (e) => {
@@ -335,13 +477,14 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
       ...prev,
       photos: [...prev.photos, ...files],
     }));
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
-    // Validate required fields
     if (
       !formData.serviceName ||
       !formData.category ||
@@ -350,9 +493,41 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
       !formData.location ||
       !formData.contact ||
       !formData.aadhaarNumber ||
-      !formData.licenseNumber
+      !formData.licenseNumber ||
+      (!formData.aadhaar && !serviceId) ||
+      (!formData.license && !serviceId) ||
+      (!formData.photos.length && !serviceId) ||
+      formData.geoLocation.coordinates[0] === 0 ||
+      formData.geoLocation.coordinates[1] === 0
     ) {
-      alert("Please fill in all required fields.");
+      setError("Please fill in all required fields, including location (use 'Get Current Location'), Aadhaar, license, and photos.");
+      setLoading(false);
+      return;
+    }
+
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price <= 0) {
+      setError("Price must be a valid positive number.");
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.availableDays.length) {
+      setError("Please select at least one available day.");
+      setLoading(false);
+      return;
+    }
+
+    const [longitude, latitude] = formData.geoLocation.coordinates;
+    if (
+      isNaN(longitude) ||
+      isNaN(latitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      setError("Invalid location coordinates. Please fetch location again.");
       setLoading(false);
       return;
     }
@@ -360,7 +535,7 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
     const formDataToSend = new FormData();
     formDataToSend.append("serviceName", formData.serviceName);
     formDataToSend.append("category", formData.category);
-    formDataToSend.append("price", formData.price);
+    formDataToSend.append("price", price);
     formDataToSend.append("duration", formData.duration);
     formData.availableDays.forEach((day) => formDataToSend.append("availableDays[]", day));
     formDataToSend.append("location", formData.location);
@@ -368,35 +543,50 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
     formDataToSend.append("description", formData.description || "");
     formDataToSend.append("aadhaarNumber", formData.aadhaarNumber);
     formDataToSend.append("licenseNumber", formData.licenseNumber);
+    formDataToSend.append("geoLocation", JSON.stringify(formData.geoLocation));
+    if (formData.aadhaar) formDataToSend.append("aadhaar", formData.aadhaar);
+    if (formData.license) formDataToSend.append("license", formData.license);
+    formData.photos.forEach((photo) => {
+      if (photo instanceof File) formDataToSend.append("photos", photo);
+    });
 
-    if (formData.aadhaarFile) formDataToSend.append("aadhaarFile", formData.aadhaarFile);
-    if (formData.licenseFile) formDataToSend.append("licenseFile", formData.licenseFile);
-    formData.photos.forEach((photo) => formDataToSend.append("photos", photo));
+    for (let [key, value] of formDataToSend.entries()) {
+      console.log(`${key}: ${value instanceof File ? value.name : value}`);
+    }
 
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        setError("Authentication token is missing. Please log in again.");
+        navigate("/login");
+        setLoading(false);
+        return;
+      }
+
       const url = serviceId
-        ? `${BASE_URL}/provider-services/dashboard/services/${serviceId}`
-        : `${BASE_URL}/provider-services/submit`;
+        ? `${BASE_URL}/provider/dashboard/services/${serviceId}`
+        : `${BASE_URL}/provider/submit`;
       const method = serviceId ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
         headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
         body: formDataToSend,
       });
 
+      const responseData = await response.json();
+      console.log("Server Response:", responseData);
+
       if (response.ok) {
-        const result = await response.json();
         if (serviceId) {
-          onUpdate && onUpdate(result.service);
+          onUpdate && onUpdate(responseData.service);
+          setError("");
           alert("Service Updated Successfully! 🎉");
         } else {
-          onAdd && onAdd(result.service);
+          onAdd && onAdd(responseData.service);
+          setError("");
           alert("Service Added Successfully! 🎉");
         }
-
         setFormData({
           serviceName: "",
           category: "",
@@ -407,20 +597,20 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
           contact: "",
           description: "",
           aadhaarNumber: "",
-          aadhaarFile: null,
+          aadhaar: null,
           licenseNumber: "",
-          licenseFile: null,
+          license: null,
           photos: [],
+          geoLocation: { type: "Point", coordinates: [0, 0] },
           _id: "",
         });
         navigate("/dashboard");
       } else {
-        const errorData = await response.json();
-        alert(`❌ Failed to ${serviceId ? "update" : "add"} service: ${errorData.msg || "Please try again."}`);
+        setError(`Failed to ${serviceId ? "update" : "add"} service: ${responseData.msg || "Please try again."}`);
       }
     } catch (error) {
       console.error(`Error ${serviceId ? "updating" : "adding"} service:`, error);
-      alert("❌ Server error. Try again later.");
+      setError("Server error. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -431,6 +621,15 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
     ...(focusedInput === inputName ? styles.inputFocus : {}),
   });
 
+  // Show loading spinner while fetching data for edit mode
+  if (loading && serviceId) {
+    return (
+      <div style={styles.loadingOverlay}>
+        <div style={styles.spinner}></div>
+      </div>
+    );
+  }
+
   return (
     <>
       {loading && (
@@ -438,7 +637,6 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
           <div style={styles.spinner}></div>
         </div>
       )}
-      
       <div style={styles.pageWrapper}>
         <div style={styles.formContainer}>
           <div style={styles.header}>
@@ -451,13 +649,12 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
           </div>
 
           <div style={styles.formContent}>
-            {/* Form Fields */}
+            {error && <p style={styles.errorMessage}>{error}</p>}
             {[
               ["Service Name *", "serviceName"],
               ["Category *", "category"],
               ["Price (₹) *", "price", "number"],
               ["Duration *", "duration"],
-              ["Location *", "location"],
               ["Contact *", "contact", "tel"],
               ["Aadhaar Number *", "aadhaarNumber"],
               ["License Number *", "licenseNumber"],
@@ -472,19 +669,62 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
                   onChange={handleChange}
                   onFocus={() => setFocusedInput(name)}
                   onBlur={() => setFocusedInput(null)}
-                  placeholder={`Enter ${label.replace(' *', '').toLowerCase()}`}
-                  required={label.includes('*')}
+                  placeholder={`Enter ${label.replace(" *", "").toLowerCase()}`}
+                  required={label.includes("*")}
                 />
               </div>
             ))}
 
-            {/* Available Days */}
             <div style={styles.formGroup}>
-              <label style={styles.label}>Available Days</label>
+              <label style={styles.label}>Location *</label>
+              <div style={{ flex: 1, display: "flex", gap: "10px", alignItems: "center" }}>
+                <input
+                  style={getInputStyle("location")}
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  onFocus={() => setFocusedInput("location")}
+                  onBlur={() => setFocusedInput(null)}
+                  placeholder="Enter location or fetch current location"
+                  required
+                />
+                <button
+                  style={{
+                    ...styles.locationButton,
+                    ...(hoveredElements.locationButton ? styles.locationButtonHover : {}),
+                    opacity: loading ? 0.7 : 1,
+                    cursor: loading ? "not-allowed" : "pointer",
+                  }}
+                  onClick={getCurrentLocation}
+                  disabled={loading}
+                  onMouseEnter={() => !loading && setHoveredElements((prev) => ({ ...prev, locationButton: true }))}
+                  onMouseLeave={() => setHoveredElements((prev) => ({ ...prev, locationButton: false }))}
+                >
+                  {loading ? "Fetching..." : "Get Current Location 📍"}
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.formGroupFull}>
+              <label style={styles.labelFull}>Description</label>
+              <textarea
+                style={getInputStyle("description", true)}
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                onFocus={() => setFocusedInput("description")}
+                onBlur={() => setFocusedInput(null)}
+                placeholder="Enter service description (optional)"
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Available Days *</label>
               <div style={styles.checkboxGroup}>
                 {daysOfWeek.map((day) => (
-                  <label 
-                    key={day} 
+                  <label
+                    key={day}
                     style={{
                       ...styles.checkboxLabel,
                       ...(formData.availableDays.includes(day) ? styles.checkboxLabelChecked : {}),
@@ -502,62 +742,63 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
               </div>
             </div>
 
-            {/* File Uploads */}
             <div style={styles.formGroup}>
-              <label style={styles.label}>Upload Aadhaar</label>
-              <div 
+              <label style={styles.label}>Upload Aadhaar *</label>
+              <div
                 style={{
                   ...styles.fileInputContainer,
                   ...(hoveredElements.aadhaar ? styles.fileInputContainerHover : {}),
                 }}
-                onMouseEnter={() => setHoveredElements(prev => ({...prev, aadhaar: true}))}
-                onMouseLeave={() => setHoveredElements(prev => ({...prev, aadhaar: false}))}
+                onMouseEnter={() => setHoveredElements((prev) => ({ ...prev, aadhaar: true }))}
+                onMouseLeave={() => setHoveredElements((prev) => ({ ...prev, aadhaar: false }))}
               >
                 <input
                   style={styles.fileInput}
                   type="file"
                   accept=".jpg,.jpeg,.png,.pdf"
-                  onChange={(e) => handleFileChange(e, "aadhaarFile")}
+                  onChange={(e) => handleFileChange(e, "aadhaar")}
+                  required={!serviceId}
                 />
                 <div style={styles.fileInputLabel}>📄 Upload Aadhaar Document</div>
                 <div style={styles.fileInputText}>
-                  {formData.aadhaarFile ? formData.aadhaarFile.name : "Click to browse files"}
+                  {formData.aadhaar ? formData.aadhaar.name : "Click to browse files"}
                 </div>
               </div>
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Upload License</label>
-              <div 
+              <label style={styles.label}>Upload License *</label>
+              <div
                 style={{
                   ...styles.fileInputContainer,
                   ...(hoveredElements.license ? styles.fileInputContainerHover : {}),
                 }}
-                onMouseEnter={() => setHoveredElements(prev => ({...prev, license: true}))}
-                onMouseLeave={() => setHoveredElements(prev => ({...prev, license: false}))}
+                onMouseEnter={() => setHoveredElements((prev) => ({ ...prev, license: true }))}
+                onMouseLeave={() => setHoveredElements((prev) => ({ ...prev, license: false }))}
               >
                 <input
                   style={styles.fileInput}
                   type="file"
                   accept=".jpg,.jpeg,.png,.pdf"
-                  onChange={(e) => handleFileChange(e, "licenseFile")}
+                  onChange={(e) => handleFileChange(e, "license")}
+                  required={!serviceId}
                 />
                 <div style={styles.fileInputLabel}>📋 Upload License Document</div>
                 <div style={styles.fileInputText}>
-                  {formData.licenseFile ? formData.licenseFile.name : "Click to browse files"}
+                  {formData.license ? formData.license.name : "Click to browse files"}
                 </div>
               </div>
             </div>
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Upload Photos *</label>
-              <div 
+              <div
                 style={{
                   ...styles.fileInputContainer,
                   ...(hoveredElements.photos ? styles.fileInputContainerHover : {}),
                 }}
-                onMouseEnter={() => setHoveredElements(prev => ({...prev, photos: true}))}
-                onMouseLeave={() => setHoveredElements(prev => ({...prev, photos: false}))}
+                onMouseEnter={() => setHoveredElements((prev) => ({ ...prev, photos: true }))}
+                onMouseLeave={() => setHoveredElements((prev) => ({ ...prev, photos: false }))}
               >
                 <input
                   style={styles.fileInput}
@@ -565,17 +806,17 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
                   accept="image/*"
                   multiple
                   onChange={handlePhotoUpload}
+                  required={!serviceId}
                 />
                 <div style={styles.fileInputLabel}>📸 Upload Service Photos</div>
                 <div style={styles.fileInputText}>
-                  {formData.photos.length > 0 
-                    ? `${formData.photos.length} file(s) selected` 
+                  {formData.photos.length > 0
+                    ? `${formData.photos.length} file(s) selected`
                     : "Click to browse multiple images"}
                 </div>
               </div>
             </div>
 
-            {/* Photo Preview */}
             {formData.photos.length > 0 && (
               <div style={styles.photoPreviewContainer}>
                 {formData.photos.map((file, idx) => (
@@ -587,29 +828,27 @@ const AddServiceForm = ({ onAdd, onUpdate }) => {
                       ...styles.photoPreview,
                       ...(hoveredElements[`photo-${idx}`] ? styles.photoPreviewHover : {}),
                     }}
-                    onMouseEnter={() => setHoveredElements(prev => ({...prev, [`photo-${idx}`]: true}))}
-                    onMouseLeave={() => setHoveredElements(prev => ({...prev, [`photo-${idx}`]: false}))}
+                    onMouseEnter={() => setHoveredElements((prev) => ({ ...prev, [`photo-${idx}`]: true }))}
+                    onMouseLeave={() => setHoveredElements((prev) => ({ ...prev, [`photo-${idx}`]: false }))}
                   />
                 ))}
               </div>
             )}
 
-            {/* Submit Button */}
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: '30px' }}>
+            <div style={{ display: "flex", alignItems: "center", marginTop: "30px" }}>
               <button
                 style={{
                   ...styles.submitButton,
                   ...(hoveredElements.submitButton ? styles.submitButtonHover : {}),
                   opacity: loading ? 0.7 : 1,
-                  cursor: loading ? 'not-allowed' : 'pointer',
+                  cursor: loading ? "not-allowed" : "pointer",
                 }}
                 onClick={handleSubmit}
                 disabled={loading}
-                onMouseEnter={() => !loading && setHoveredElements(prev => ({...prev, submitButton: true}))}
-                onMouseLeave={() => setHoveredElements(prev => ({...prev, submitButton: false}))}
+                onMouseEnter={() => !loading && setHoveredElements((prev) => ({ ...prev, submitButton: true }))}
+                onMouseLeave={() => setHoveredElements((prev) => ({ ...prev, submitButton: false }))}
               >
-                {loading ? "Submitting..." : serviceId ? "Update Service" : "Add Service"} 
-                {!loading && " ✨"}
+                {loading ? "Submitting..." : serviceId ? "Update Service" : "Add Service"} {!loading && " ✨"}
               </button>
             </div>
           </div>
