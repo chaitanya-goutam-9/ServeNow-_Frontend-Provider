@@ -11,6 +11,7 @@ import {
   LogOut,
   User,
 } from "lucide-react";
+import AddServiceForm from "./AddServiceForm"; // Ensure correct path to AddServiceForm.jsx
 
 const BASE_URL = "http://localhost:5000/api";
 
@@ -147,6 +148,7 @@ const styles = {
     marginTop: "12px",
     display: "flex",
     justifyContent: "space-between",
+    gap: "10px",
   },
   actionButton: {
     padding: "8px 16px",
@@ -156,6 +158,7 @@ const styles = {
     fontWeight: "500",
     cursor: "pointer",
     transition: "background-color 0.2s",
+    flex: 1,
   },
   editButton: {
     backgroundColor: "#10b981",
@@ -199,6 +202,7 @@ const styles = {
     fontSize: "1rem",
     backgroundColor: "#f8fbff",
     transition: "border-color 0.2s, box-shadow 0.2s",
+    boxSizing: "border-box",
   },
   formInputFocus: {
     borderColor: "#2563eb",
@@ -206,11 +210,13 @@ const styles = {
     outline: "none",
   },
   fileInput: {
+    width: "100%",
     padding: "10px",
     border: "1px solid #d1e0ff",
     borderRadius: "8px",
     backgroundColor: "#f8fbff",
     cursor: "pointer",
+    boxSizing: "border-box",
   },
   submitButton: {
     padding: "12px 24px",
@@ -246,6 +252,42 @@ const styles = {
     padding: "24px",
   },
 };
+
+// Placeholder components for other sections
+const ManageBookings = () => (
+  <div style={styles.contentArea}>
+    <h2>Manage Bookings</h2>
+    <p>Bookings management component would go here...</p>
+  </div>
+);
+
+const ServiceHistory = () => (
+  <div style={styles.contentArea}>
+    <h2>Service History</h2>
+    <p>Service history component would go here...</p>
+  </div>
+);
+
+const Messages = () => (
+  <div style={styles.contentArea}>
+    <h2>Messages</h2>
+    <p>Messages component would go here...</p>
+  </div>
+);
+
+const EarningsReport = () => (
+  <div style={styles.contentArea}>
+    <h2>Earnings Report</h2>
+    <p>Earnings report component would go here...</p>
+  </div>
+);
+
+const Support = () => (
+  <div style={styles.contentArea}>
+    <h2>Support</h2>
+    <p>Support component would go here...</p>
+  </div>
+);
 
 const ProfileManagement = ({ onProfileUpdate, initialProfile, onBackToDashboard }) => {
   const [profile, setProfile] = useState(
@@ -524,48 +566,6 @@ const ProfileManagement = ({ onProfileUpdate, initialProfile, onBackToDashboard 
   );
 };
 
-const AddServiceForm = ({ onAdd, onUpdate }) => (
-  <div style={styles.contentArea}>
-    <h2>Add New Service</h2>
-    <p>Service form component would go here...</p>
-  </div>
-);
-
-const ManageBookings = () => (
-  <div style={styles.contentArea}>
-    <h2>Manage Bookings</h2>
-    <p>Bookings management component would go here...</p>
-  </div>
-);
-
-const ServiceHistory = () => (
-  <div style={styles.contentArea}>
-    <h2>Service History</h2>
-    <p>Service history component would go here...</p>
-  </div>
-);
-
-const Messages = () => (
-  <div style={styles.contentArea}>
-    <h2>Messages</h2>
-    <p>Messages component would go here...</p>
-  </div>
-);
-
-const EarningsReport = () => (
-  <div style={styles.contentArea}>
-    <h2>Earnings Report</h2>
-    <p>Earnings report component would go here...</p>
-  </div>
-);
-
-const Support = () => (
-  <div style={styles.contentArea}>
-    <h2>Support</h2>
-    <p>Support component would go here...</p>
-  </div>
-);
-
 const providerServices = [
   { name: "Dashboard Home", component: null, icon: <Home size={18} /> },
   { name: "Add New Service", component: AddServiceForm, icon: <Plus size={18} /> },
@@ -736,6 +736,7 @@ const Dashboard = () => {
   };
 
   const handleServiceClick = (service) => {
+    console.log("Selected service:", service.name);
     setSelectedService(service);
     setError("");
   };
@@ -769,125 +770,138 @@ const Dashboard = () => {
     setSelectedService(null);
   };
 
-  const renderContent = () => (
-    !selectedService || selectedService.component === null ? (
-      <section style={styles.cards}>
-        {isLoadingServices && <p style={styles.loadingMessage}>Loading services...</p>}
-        {error && <p style={styles.errorMessage}>{error}</p>}
-        {!isLoadingServices && cards.length === 0 ? (
-          <p style={{ padding: "24px", fontSize: "1.1rem", color: "#6b7280", textAlign: "center" }}>
-            No services found. Please add your first service.
-          </p>
-        ) : (
-          cards.map((card, index) => (
-            <div
-              key={card._id}
-              style={styles.card}
-              onMouseOver={(e) =>
-                Object.assign(e.currentTarget.style, {
-                  transform: "scale(1.02)",
-                  boxShadow: "0 6px 16px rgba(0, 0, 0, 0.12)",
-                })
-              }
-              onMouseOut={(e) =>
-                Object.assign(e.currentTarget.style, {
-                  transform: "scale(1)",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                })
-              }
-            >
-              <h3
-                style={{
-                  color: "#1a3c6e",
-                  marginBottom: "10px",
-                  fontSize: "1.2rem",
-                  fontWeight: "600",
-                }}
+  const renderContent = () => {
+    if (!selectedService || selectedService.component === null) {
+      return (
+        <section style={styles.cards}>
+          {isLoadingServices && <p style={styles.loadingMessage}>Loading services...</p>}
+          {error && <p style={styles.errorMessage}>{error}</p>}
+          {!isLoadingServices && cards.length === 0 ? (
+            <p style={{ padding: "24px", fontSize: "1.1rem", color: "#6b7280", textAlign: "center" }}>
+              No services found. Please add your first service.
+            </p>
+          ) : (
+            cards.map((card, index) => (
+              <div
+                key={card._id}
+                style={styles.card}
+                onMouseOver={(e) =>
+                  Object.assign(e.currentTarget.style, {
+                    transform: "scale(1.02)",
+                    boxShadow: "0 6px 16px rgba(0, 0, 0, 0.12)",
+                  })
+                }
+                onMouseOut={(e) =>
+                  Object.assign(e.currentTarget.style, {
+                    transform: "scale(1)",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                  })
+                }
               >
-                {card.serviceName || card.title || card.category}
-              </h3>
-              <p style={{ color: "#4b5e8e", lineHeight: "1.5" }}>
-                <strong>Description:</strong> {card.description}
-              </p>
-              {card.price && (
-                <p style={{ color: "#4b5e8e" }}>
-                  <strong>Price:</strong> ₹{card.price}
+                <h3
+                  style={{
+                    color: "#1a3c6e",
+                    marginBottom: "10px",
+                    fontSize: "1.2rem",
+                    fontWeight: "600",
+                  }}
+                >
+                  {card.serviceName || card.title || card.category}
+                </h3>
+                <p style={{ color: "#4b5e8e", lineHeight: "1.5" }}>
+                  <strong>Description:</strong> {card.description}
                 </p>
-              )}
-              {card.category && (
-                <p style={{ color: "#4b5e8e" }}>
-                  <strong>Category:</strong> {card.category}
-                </p>
-              )}
-              {card.availableDays?.length > 0 && (
-                <p style={{ color: "#4b5e8e" }}>
-                  <strong>Available Days:</strong> {card.availableDays.join(", ")}
-                </p>
-              )}
-              {card.location && (
-                <p style={{ color: "#4b5e8e" }}>
-                  <strong>Location:</strong> {card.location}
-                </p>
-              )}
-              {card.status && (
-                <p style={{ color: "#4b5e8e" }}>
-                  <strong>Status:</strong>{" "}
-                  <span
-                    style={{
-                      color:
-                        card.status === "approved"
-                          ? "#10b981"
-                          : card.status === "pending"
-                          ? "#f59e0b"
-                          : "#ef4444",
-                      fontWeight: "600",
-                    }}
+                {card.price && (
+                  <p style={{ color: "#4b5e8e" }}>
+                    <strong>Price:</strong> ₹{card.price}
+                  </p>
+                )}
+                {card.category && (
+                  <p style={{ color: "#4b5e8e" }}>
+                    <strong>Category:</strong> {card.category}
+                  </p>
+                )}
+                {card.availableDays?.length > 0 && (
+                  <p style={{ color: "#4b5e8e" }}>
+                    <strong>Available Days:</strong> {card.availableDays.join(", ")}
+                  </p>
+                )}
+                {card.location && (
+                  <p style={{ color: "#4b5e8e" }}>
+                    <strong>Location:</strong> {card.location}
+                  </p>
+                )}
+                {card.status && (
+                  <p style={{ color: "#4b5e8e" }}>
+                    <strong>Status:</strong>{" "}
+                    <span
+                      style={{
+                        color:
+                          card.status === "approved"
+                            ? "#10b981"
+                            : card.status === "pending"
+                            ? "#f59e0b"
+                            : "#ef4444",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {card.status.toUpperCase()}
+                    </span>
+                  </p>
+                )}
+                <div style={styles.cardActions}>
+                  <button
+                    style={{ ...styles.actionButton, ...styles.editButton }}
+                    onClick={() => handleEdit(index)}
+                    onMouseOver={(e) => Object.assign(e.target.style, { backgroundColor: "#059669" })}
+                    onMouseOut={(e) => Object.assign(e.target.style, { backgroundColor: "#10b981" })}
                   >
-                    {card.status.toUpperCase()}
-                  </span>
-                </p>
-              )}
-              <div style={styles.cardActions}>
-                <button
-                  style={{ ...styles.actionButton, ...styles.editButton }}
-                  onClick={() => handleEdit(index)}
-                  onMouseOver={(e) => Object.assign(e.target.style, { backgroundColor: "#059669" })}
-                  onMouseOut={(e) => Object.assign(e.target.style, { backgroundColor: "#10b981" })}
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  style={{ ...styles.actionButton, ...styles.deleteButton }}
-                  onClick={() => handleDelete(index, card._id)}
-                  onMouseOver={(e) => Object.assign(e.target.style, { backgroundColor: "#dc2626" })}
-                  onMouseOut={(e) => Object.assign(e.target.style, { backgroundColor: "#ef4444" })}
-                >
-                  🗑️ Delete
-                </button>
+                    ✏️ Edit
+                  </button>
+                  <button
+                    style={{ ...styles.actionButton, ...styles.deleteButton }}
+                    onClick={() => handleDelete(index, card._id)}
+                    onMouseOver={(e) => Object.assign(e.target.style, { backgroundColor: "#dc2626" })}
+                    onMouseOut={(e) => Object.assign(e.target.style, { backgroundColor: "#ef4444" })}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
-        )}
-      </section>
-    ) : (
-      <section style={styles.contentArea}>
-        {selectedService.component === AddServiceForm ? (
-          <selectedService.component
-            onAdd={handleAddService}
-            onUpdate={handleUpdateService}
-          />
-        ) : selectedService.component === ProfileManagement ? (
-          <selectedService.component
-            onProfileUpdate={handleProfileUpdate}
-            initialProfile={profile}
-            onBackToDashboard={handleBackToDashboard}
-          />
-        ) : (
-          <selectedService.component />
-        )}
-      </section>
-    )
-  );
+            ))
+          )}
+        </section>
+      );
+    } else {
+      const SelectedComponent = selectedService.component;
+      if (SelectedComponent === AddServiceForm) {
+        return (
+          <section style={styles.contentArea}>
+            <SelectedComponent
+              onAdd={handleAddService}
+              onUpdate={handleUpdateService}
+            />
+          </section>
+        );
+      } else if (SelectedComponent === ProfileManagement) {
+        return (
+          <section style={styles.contentArea}>
+            <SelectedComponent
+              onProfileUpdate={handleProfileUpdate}
+              initialProfile={profile}
+              onBackToDashboard={handleBackToDashboard}
+            />
+          </section>
+        );
+      } else {
+        return (
+          <section style={styles.contentArea}>
+            <SelectedComponent />
+          </section>
+        );
+      }
+    }
+  };
 
   return (
     <div style={styles.dashboard}>
