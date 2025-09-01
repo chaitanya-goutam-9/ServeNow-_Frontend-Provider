@@ -2,528 +2,716 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faSpinner,
+  faCheck,
+  faTimes,
+  faRefresh,
+  faClock,
+  faCalendar,
+  faUser,
+  faPhone,
+  faEnvelope,
+  faArrowLeft,
+} from '@fortawesome/free-solid-svg-icons';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '32px',
+    backgroundColor: '#f0f4f8',
+    minHeight: '100vh',
+    maxWidth: '1400px',
+    margin: '0 auto',
+  },
+  heading: {
+    fontSize: '2rem',
+    fontWeight: '700',
+    color: '#1e40af',
+    marginBottom: '16px',
+    textAlign: 'center',
+  },
+  subHeading: {
+    fontSize: '1.25rem',
+    color: '#64748b',
+    marginBottom: '32px',
+    textAlign: 'center',
+  },
+  statsContainer: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+    marginBottom: '32px',
+  },
+  statCard: {
+    background: '#ffffff',
+    padding: '24px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+    textAlign: 'center',
+  },
+  statNumber: {
+    fontSize: '2rem',
+    fontWeight: '700',
+    color: '#1e40af',
+    display: 'block',
+  },
+  statLabel: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    marginTop: '4px',
+  },
+  filterContainer: {
+    background: '#ffffff',
+    padding: '24px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+    marginBottom: '24px',
+    display: 'flex',
+    justifyContent: 'flex-start',
+    gap: '16px',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  select: {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #d1d5db',
+    backgroundColor: '#ffffff',
+    fontSize: '0.875rem',
+    minWidth: '120px',
+  },
+  card: {
+    background: '#ffffff',
+    padding: '32px',
+    borderRadius: '12px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+    marginBottom: '32px',
+  },
+  tableContainer: {
+    overflowX: 'auto',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'separate',
+    borderSpacing: '0 8px',
+    background: '#ffffff',
+    borderRadius: '12px',
+    overflow: 'hidden',
+  },
+  th: {
+    padding: '16px',
+    textAlign: 'left',
+    backgroundColor: '#eff6ff',
+    color: '#1e40af',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    fontSize: '0.875rem',
+    letterSpacing: '0.05em',
+  },
+  td: {
+    padding: '16px',
+    backgroundColor: '#ffffff',
+    borderBottom: '1px solid #e2e8f0',
+    fontSize: '0.875rem',
+    color: '#334155',
+    verticalAlign: 'top',
+  },
+  button: {
+    padding: '8px 16px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    transition: 'all 0.2s ease',
+    border: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  acceptButton: {
+    backgroundColor: '#22c55e',
+    color: 'white',
+    marginRight: '8px',
+  },
+  rejectButton: {
+    backgroundColor: '#ef4444',
+    color: 'white',
+    marginRight: '8px',
+  },
+  refreshButton: {
+    backgroundColor: '#3b82f6',
+    color: 'white',
+  },
+  backButton: {
+    backgroundColor: '#6b7280',
+    color: 'white',
+  },
+  viewButton: {
+    backgroundColor: '#6366f1',
+    color: 'white',
+    marginRight: '8px',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+    cursor: 'not-allowed',
+  },
+  statusBadge: {
+    padding: '4px 12px',
+    borderRadius: '999px',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    textAlign: 'center',
+    display: 'inline-block',
+    minWidth: '80px',
+  },
+  pendingBadge: {
+    backgroundColor: '#fef3c7',
+    color: '#d97706',
+  },
+  acceptedBadge: {
+    backgroundColor: '#dcfce7',
+    color: '#15803d',
+  },
+  rejectedBadge: {
+    backgroundColor: '#fee2e2',
+    color: '#b91c1c',
+  },
+  completedBadge: {
+    backgroundColor: '#e0e7ff',
+    color: '#4f46e5',
+  },
+  cancelledBadge: {
+    backgroundColor: '#f3f4f6',
+    color: '#6b7280',
+  },
+  customerInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  customerName: {
+    fontWeight: '600',
+    color: '#1e40af',
+  },
+  customerDetail: {
+    fontSize: '0.75rem',
+    color: '#64748b',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  bookingInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  bookingDetail: {
+    fontSize: '0.875rem',
+    color: '#334155',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: '40px',
+    color: '#94a3b8',
+  },
+  loadingContainer: {
+    textAlign: 'center',
+    padding: '40px',
+  },
+  actionButtons: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
+};
 
 const ManageBookings = () => {
-  const [bookings, setBookings] = useState([]);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [userRole, setUserRole] = useState(localStorage.getItem('role') || 'customer');
-  const [userId] = useState(localStorage.getItem('userId') || 'sample-user-id');
-  const [newBooking, setNewBooking] = useState({
-    bookingId: `B${Date.now()}`,
-    customerId: userRole === 'customer' ? userId : 'sample-customer-id',
-    providerId: '',
-    serviceId: '',
-    serviceType: '',
-    bookingDate: '',
-    time: '',
-    additionalNotes: '',
+  const [userId, setUserId] = useState(localStorage.getItem('providerId') || '');
+  const [bookings, setBookings] = useState([]);
+  const [filteredBookings, setFilteredBookings] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    accepted: 0,
+    rejected: 0,
+    completed: 0,
+    cancelled: 0,
   });
-  const [services, setServices] = useState([]);
-  const [providers] = useState([{ id: 'provider1', name: 'Sample Provider' }]);
-  const [newService, setNewService] = useState({
-    serviceType: '',
-    description: '',
-    price: '',
-    duration: '',
-  });
-  const [editingService, setEditingService] = useState(null);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
-  // API Utility
-  const API_URL = 'http://localhost:3000/api';
-  const api = axios.create({
-    baseURL: API_URL,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  api.interceptors.request.use((config) => {
+  const checkAuth = async () => {
     const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (!token) {
+      if (location.pathname !== '/') {
+        console.log('No token found, navigating to /');
+        toast.error('Please log in to continue');
+        navigate('/', { replace: true });
+      }
+      return false;
     }
-    return config;
-  });
+
+    try {
+      const decoded = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+
+      if (decoded.exp < currentTime) {
+        if (location.pathname !== '/') {
+          console.log('Token expired, navigating to /');
+          toast.error('Session expired. Please log in again.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('providerId');
+          navigate('/', { replace: true });
+        }
+        return false;
+      }
+
+      const providerId = decoded.user?.id || decoded.id;
+      if (!providerId) {
+        console.log('Token missing user ID, navigating to /');
+        toast.error('Invalid token. Please log in again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('providerId');
+        navigate('/', { replace: true });
+        return false;
+      }
+
+      try {
+        console.log('Verifying provider for user:', providerId);
+        const response = await api.get(`/booking/provider/${providerId}`);
+        console.log('Provider verification response:', response.data);
+        
+        if (response.status === 200 && response.data.role === 'provider') {
+          if (response.data.provider && response.data.provider.status === 'approved') {
+            console.log('Provider access verified for user:', providerId);
+            if (!userId) {
+              setUserId(providerId);
+              localStorage.setItem('providerId', providerId);
+            }
+            return true;
+          } else {
+            throw new Error('Provider not approved');
+          }
+        } else {
+          throw new Error('Invalid provider verification response');
+        }
+      } catch (error) {
+        console.error('Provider verification error:', {
+          status: error.response?.status,
+          message: error.response?.data?.msg || error.message,
+          data: error.response?.data,
+        });
+        
+        if (error.response?.status === 401) {
+          toast.error('Please log in again.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('providerId');
+          navigate('/', { replace: true });
+        } else if (error.response?.status === 403) {
+          const errorMsg = error.response?.data?.msg || 'Access denied. You are not authorized as a provider.';
+          toast.error(errorMsg);
+          localStorage.removeItem('token');
+          localStorage.removeItem('providerId');
+          navigate('/', { replace: true });
+        } else if (error.response?.status === 404) {
+          toast.error('Provider not found. Please ensure your account is set up correctly.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('providerId');
+          navigate('/', { replace: true });
+        } else {
+          toast.error('Error verifying provider status. Please try again later.');
+        }
+        return false;
+      }
+    } catch (error) {
+      console.error('Token validation error:', error);
+      if (location.pathname !== '/') {
+        console.log('Invalid token, navigating to /');
+        toast.error('Invalid token. Please log in again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('providerId');
+        navigate('/', { replace: true });
+      }
+      return false;
+    }
+  };
 
   const fetchBookings = async () => {
+    if (!userId) {
+      if (location.pathname !== '/') {
+        console.log('No userId, navigating to /');
+        toast.error('Provider ID not found. Please log in again.');
+        navigate('/', { replace: true });
+      }
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await api.get(`/bookings/history/${userRole}/${userId}`);
-      setBookings(response.data.bookings);
+      console.log('Fetching bookings for provider:', userId);
+      const response = await api.get(`/booking/booking/provider/${userId}`);
+      console.log('Bookings response:', response.data);
+
+      const bookingsData = Array.isArray(response.data) ? response.data : [];
+      setBookings(bookingsData);
+
+      const newStats = {
+        total: bookingsData.length,
+        pending: bookingsData.filter((b) => b.status === 'pending').length,
+        accepted: bookingsData.filter((b) => b.status === 'accepted').length,
+        rejected: bookingsData.filter((b) => b.status === 'rejected').length,
+        completed: bookingsData.filter((b) => b.status === 'completed').length,
+        cancelled: bookingsData.filter((b) => b.status === 'cancelled').length,
+      };
+      setStats(newStats);
+
+      toast.success('Bookings refreshed successfully');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Error fetching bookings');
+      console.error('Fetch bookings error:', {
+        status: error.response?.status,
+        message: error.response?.data?.msg || error.message,
+        data: error.response?.data,
+      });
+      const errorMsg = error.response?.data?.msg || 'Error fetching bookings';
+      toast.error(errorMsg);
+
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        if (location.pathname !== '/') {
+          console.log('Unauthorized, navigating to /');
+          localStorage.removeItem('token');
+          localStorage.removeItem('providerId');
+          toast.error(error.response?.data?.msg || 'Session invalid. Please log in again.');
+          navigate('/', { replace: true });
+        }
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchServices = async (providerId) => {
+  const handleBookingAction = async (serviceId, status) => {
+    setLoading(true);
     try {
-      const response = await api.get(`/services/${providerId}`);
-      setServices(response.data.services);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Error fetching services');
-    }
-  };
-
-  const handleBookingAction = async (bookingId, status) => {
-    try {
-      setLoading(true);
-      await api.patch(`/bookings/update-status/${bookingId}`, { status });
+      console.log(`Updating booking ${serviceId} to status: ${status}`);
+      await api.put(`/booking/status/${serviceId}`, { status });
       toast.success(`Booking ${status} successfully`);
-      fetchBookings();
+      await fetchBookings();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Error updating booking status');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDownloadInvoice = async (bookingId) => {
-    try {
-      setLoading(true);
-      const response = await api.get(`/bookings/invoice/${bookingId}`, {
-        responseType: 'blob',
+      console.error('Update booking error:', {
+        status: error.response?.status,
+        message: error.response?.data?.msg || error.message,
+        data: error.response?.data,
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${bookingId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success('Invoice downloaded successfully');
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Error downloading invoice');
+      const errorMsg =
+        error.response?.status === 403 && error.response?.data?.msg.includes('service is not approved')
+          ? 'Cannot update booking: The associated service is not approved. Please contact the admin.'
+          : error.response?.data?.msg || 'Error updating booking status';
+      toast.error(errorMsg);
+      if (error.response?.status === 401) {
+        if (location.pathname !== '/') {
+          console.log('Unauthorized, navigating to /');
+          localStorage.removeItem('token');
+          localStorage.removeItem('providerId');
+          toast.error('Session invalid. Please log in again.');
+          navigate('/', { replace: true });
+        }
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    setNewBooking({ ...newBooking, [e.target.name]: e.target.value });
-  };
-
-  const handleServiceInputChange = (e) => {
-    const { name, value } = e.target;
-    if (editingService) {
-      setEditingService({ ...editingService, [name]: value });
-    } else {
-      setNewService({ ...newService, [name]: value });
+  const getStatusBadgeStyle = (status) => {
+    const baseStyle = styles.statusBadge;
+    switch (status?.toLowerCase()) {
+      case 'accepted':
+        return { ...baseStyle, ...styles.acceptedBadge };
+      case 'rejected':
+        return { ...baseStyle, ...styles.rejectedBadge };
+      case 'completed':
+        return { ...baseStyle, ...styles.completedBadge };
+      case 'cancelled':
+        return { ...baseStyle, ...styles.cancelledBadge };
+      default:
+        return { ...baseStyle, ...styles.pendingBadge };
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!newBooking.bookingId || !newBooking.serviceId || !newBooking.bookingDate || !newBooking.time) {
-      toast.error('Required fields: Booking ID, Service, Date, Time');
-      return;
-    }
+  const formatDate = (dateString) => {
     try {
-      setLoading(true);
-      const selectedService = services.find(s => s._id === newBooking.serviceId);
-      await api.post('/bookings', {
-        ...newBooking,
-        customerId: userId,
-        serviceType: selectedService?.serviceType || '',
-        bookingDate: new Date(newBooking.bookingDate),
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
       });
-      toast.success('Booking created successfully');
-      setNewBooking({
-        ...newBooking,
-        bookingId: `B${Date.now()}`,
-        serviceId: '',
-        serviceType: '',
-        bookingDate: '',
-        time: '',
-        additionalNotes: '',
-      });
-      fetchBookings();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Error creating booking');
-    } finally {
-      setLoading(false);
+    } catch {
+      return 'Invalid Date';
     }
   };
 
-  const handleCreateService = async (e) => {
-    e.preventDefault();
-    if (!newService.serviceType || !newService.price) {
-      toast.error('Service Type and Price are required');
-      return;
-    }
-    try {
-      setLoading(true);
-      await api.post('/services', { ...newService, providerId: userId });
-      toast.success('Service created successfully');
-      setNewService({ serviceType: '', description: '', price: '', duration: '' });
-      fetchServices(userId);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Error creating service');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateService = async (e) => {
-    e.preventDefault();
-    if (!editingService.serviceType || !editingService.price) {
-      toast.error('Service Type and Price are required');
-      return;
-    }
-    try {
-      setLoading(true);
-      await api.patch(`/services/${editingService._id}`, editingService);
-      toast.success('Service updated successfully');
-      setEditingService(null);
-      fetchServices(userId);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Error updating service');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteService = async (serviceId) => {
-    try {
-      setLoading(true);
-      await api.delete(`/services/${serviceId}`);
-      toast.success('Service deleted successfully');
-      fetchServices(userId);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Error deleting service');
-    } finally {
-      setLoading(false);
-    }
+  const formatTime = (timeString) => {
+    if (!timeString) return 'Not specified';
+    return timeString;
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        await fetchBookings();
-        if (userRole === 'customer' && newBooking.providerId) {
-          await fetchServices(newBooking.providerId);
-        } else if (userRole === 'provider') {
-          await fetchServices(userId);
+    if (statusFilter === 'all') {
+      setFilteredBookings(bookings);
+    } else {
+      setFilteredBookings(bookings.filter((booking) => booking.status === statusFilter));
+    }
+  }, [bookings, statusFilter]);
+
+  useEffect(() => {
+    if (!isAuthChecked) {
+      setIsAuthChecked(true);
+      checkAuth().then((isAuthenticated) => {
+        if (isAuthenticated) {
+          fetchBookings();
         }
-      } catch (error) {
-        toast.error('Error fetching data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [userRole, userId, newBooking.providerId]);
+      });
+    }
+  }, []);
 
   return (
-    <div className="container mx-auto p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Manage Bookings</h1>
-      <p className="mb-8 text-center text-gray-600">
-        {userRole === 'provider' ? 'Manage customer booking requests and services.' : 'View and create bookings.'}
-      </p>
-
-      {/* Role Toggle */}
-      <div className="mb-6 text-center">
-        <label className="mr-4">View as:</label>
-        <select
-          value={userRole}
-          onChange={(e) => {
-            setUserRole(e.target.value);
-            localStorage.setItem('role', e.target.value);
-            setNewBooking({
-              ...newBooking,
-              customerId: e.target.value === 'customer' ? userId : 'sample-customer-id',
-              providerId: e.target.value === 'provider' ? userId : newBooking.providerId,
-            });
-          }}
-          className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="provider">Provider</option>
-          <option value="customer">Customer</option>
-        </select>
+    <div style={styles.container}>
+      <h1 style={styles.heading}>Manage Customer Bookings</h1>
+      <p style={styles.subHeading}>Review and manage incoming booking requests</p>
+      
+      <div style={styles.statsContainer}>
+        <div style={styles.statCard}>
+          <span style={styles.statNumber}>{stats.total}</span>
+          <div style={styles.statLabel}>Total Bookings</div>
+        </div>
+        <div style={styles.statCard}>
+          <span style={{ ...styles.statNumber, color: '#d97706' }}>{stats.pending}</span>
+          <div style={styles.statLabel}>Pending</div>
+        </div>
+        <div style={styles.statCard}>
+          <span style={{ ...styles.statNumber, color: '#15803d' }}>{stats.accepted}</span>
+          <div style={styles.statLabel}>Accepted</div>
+        </div>
+        <div style={styles.statCard}>
+          <span style={{ ...styles.statNumber, color: '#4f46e5' }}>{stats.completed}</span>
+          <div style={styles.statLabel}>Completed</div>
+        </div>
       </div>
-
-      {/* Service Management (Provider Only) */}
-      {userRole === 'provider' && (
-        <div className="mb-8 bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Manage Services</h2>
-          <form onSubmit={editingService ? handleUpdateService : handleCreateService}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                name="serviceType"
-                value={editingService ? editingService.serviceType : newService.serviceType}
-                onChange={handleServiceInputChange}
-                placeholder="Service Type (e.g., Cleaning)"
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-              <input
-                type="text"
-                name="description"
-                value={editingService ? editingService.description : newService.description}
-                onChange={handleServiceInputChange}
-                placeholder="Description (optional)"
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="number"
-                name="price"
-                value={editingService ? editingService.price : newService.price}
-                onChange={handleServiceInputChange}
-                placeholder="Price (e.g., 50)"
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-              <input
-                type="text"
-                name="duration"
-                value={editingService ? editingService.duration : newService.duration}
-                onChange={handleServiceInputChange}
-                placeholder="Duration (e.g., 1 hour)"
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
-            >
-              {loading ? 'Submitting...' : editingService ? 'Update Service' : 'Create Service'}
-            </button>
-            {editingService && (
-              <button
-                type="button"
-                onClick={() => setEditingService(null)}
-                disabled={loading}
-                className="mt-4 ml-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 disabled:bg-gray-300"
-              >
-                Cancel Edit
-              </button>
-            )}
-          </form>
-          {loading ? (
-            <p className="text-blue-500 text-center mt-4">Loading...</p>
-          ) : (
-            <div className="mt-6 overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-200">
+      
+      <div style={styles.filterContainer}>
+        <button
+          onClick={() => {
+            console.log('Back button clicked, navigating to /dashboard');
+            navigate('/dashboard');
+          }}
+          style={{
+            ...styles.button,
+            ...styles.backButton,
+          }}
+        >
+          <FontAwesomeIcon icon={faArrowLeft} />
+          Back
+        </button>
+        <label>Filter by Status:</label>
+        <select
+          style={styles.select}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="all">All Bookings</option>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="rejected">Rejected</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button
+          onClick={fetchBookings}
+          disabled={loading}
+          style={{
+            ...styles.button,
+            ...styles.refreshButton,
+            ...(loading ? styles.buttonDisabled : {}),
+          }}
+        >
+          <FontAwesomeIcon icon={faRefresh} />
+          Refresh Bookings
+        </button>
+      </div>
+      
+      <div style={styles.card}>
+        {loading ? (
+          <div style={styles.loadingContainer}>
+            <FontAwesomeIcon
+              icon={faSpinner}
+              spin
+              style={{ marginRight: '8px', fontSize: '1.5rem', color: '#3b82f6' }}
+            />
+            <p>Loading bookings...</p>
+          </div>
+        ) : (
+          <div style={styles.tableContainer}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Customer Details</th>
+                  <th style={styles.th}>Booking Info</th>
+                  <th style={styles.th}>Booking ID</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBookings.length === 0 ? (
                   <tr>
-                    <th className="px-6 py-3 text-left text-gray-600">Service Type</th>
-                    <th className="px-6 py-3 text-left text-gray-600">Description</th>
-                    <th className="px-6 py-3 text-left text-gray-600">Price</th>
-                    <th className="px-6 py-3 text-left text-gray-600">Duration</th>
-                    <th className="px-6 py-3 text-left text-gray-600">Actions</th>
+                    <td colSpan="5" style={styles.emptyState}>
+                      {statusFilter === 'all'
+                        ? 'No booking requests found'
+                        : `No ${statusFilter} bookings found`}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {services.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                        No services found
+                ) : (
+                  filteredBookings.map((booking) => (
+                    <tr key={booking._id}>
+                      <td style={styles.td}>
+                        <div style={styles.customerInfo}>
+                          <div style={styles.customerName}>
+                            <FontAwesomeIcon icon={faUser} style={{ marginRight: '6px' }} />
+                            {booking.customerName}
+                          </div>
+                          <div style={styles.customerDetail}>
+                            <FontAwesomeIcon icon={faEnvelope} />
+                            {booking.customerEmail}
+                          </div>
+                          <div style={styles.customerDetail}>
+                            <FontAwesomeIcon icon={faPhone} />
+                            {booking.customerNumber}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        <div style={styles.bookingInfo}>
+                          <div style={styles.bookingDetail}>
+                            <FontAwesomeIcon icon={faCalendar} />
+                            {formatDate(booking.bookingDate)}
+                          </div>
+                          <div style={styles.bookingDetail}>
+                            <FontAwesomeIcon icon={faClock} />
+                            {formatTime(booking.bookingTime)} ({booking.bookingSlot})
+                          </div>
+                          {booking.additionalNotes && (
+                            <div style={{ ...styles.bookingDetail, fontSize: '0.75rem', fontStyle: 'italic' }}>
+                              Note: {booking.additionalNotes}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        <code
+                          style={{
+                            backgroundColor: '#f1f5f9',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                          }}
+                        >
+                          {booking.bookingId}
+                        </code>
+                      </td>
+                      <td style={styles.td}>
+                        <span style={getStatusBadgeStyle(booking.status)}>{booking.status || 'Pending'}</span>
+                      </td>
+                      <td style={styles.td}>
+                        <div style={styles.actionButtons}>
+                          {booking.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleBookingAction(booking._id, 'accepted')}
+                                disabled={loading}
+                                style={{
+                                  ...styles.button,
+                                  ...styles.acceptButton,
+                                  ...(loading ? styles.buttonDisabled : {}),
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faCheck} />
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleBookingAction(booking._id, 'rejected')}
+                                disabled={loading}
+                                style={{
+                                  ...styles.button,
+                                  ...styles.rejectButton,
+                                  ...(loading ? styles.buttonDisabled : {}),
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faTimes} />
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {booking.status === 'accepted' && (
+                            <button
+                              onClick={() => handleBookingAction(booking._id, 'completed')}
+                              disabled={loading}
+                              style={{
+                                ...styles.button,
+                                ...styles.completedBadge,
+                                color: 'white',
+                                ...(loading ? styles.buttonDisabled : {}),
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faCheck} />
+                              Mark Complete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    services.map((service) => (
-                      <tr key={service._id} className="border-t">
-                        <td className="px-6 py-4">{service.serviceType}</td>
-                        <td className="px-6 py-4">{service.description || 'N/A'}</td>
-                        <td className="px-6 py-4">${service.price}</td>
-                        <td className="px-6 py-4">{service.duration || 'N/A'}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => setEditingService(service)}
-                              disabled={loading}
-                              className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 disabled:bg-yellow-300"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteService(service._id)}
-                              disabled={loading}
-                              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:bg-red-300"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Form for New Booking (Customer Only) */}
-      {userRole === 'customer' && (
-        <form onSubmit={handleSubmit} className="mb-8 bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Create New Booking</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              name="bookingId"
-              value={newBooking.bookingId}
-              onChange={handleInputChange}
-              placeholder="Booking ID (e.g., B123)"
-              className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100"
-              disabled
-            />
-            <select
-              name="providerId"
-              value={newBooking.providerId}
-              onChange={(e) => {
-                handleInputChange(e);
-                fetchServices(e.target.value);
-              }}
-              className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="">Select Provider</option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name}
-                </option>
-              ))}
-            </select>
-            <select
-              name="serviceId"
-              value={newBooking.serviceId}
-              onChange={handleInputChange}
-              className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="">Select Service</option>
-              {services.map((service) => (
-                <option key={service._id} value={service._id}>
-                  {service.serviceType} - ${service.price}
-                </option>
-              ))}
-            </select>
-            <input
-              type="date"
-              name="bookingDate"
-              value={newBooking.bookingDate}
-              onChange={handleInputChange}
-              className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <input
-              type="time"
-              name="time"
-              value={newBooking.time}
-              onChange={handleInputChange}
-              className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <textarea
-              name="additionalNotes"
-              value={newBooking.additionalNotes}
-              onChange={handleInputChange}
-              placeholder="Additional Notes (optional)"
-              className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-2"
-              rows="4"
-            />
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
-          >
-            {loading ? 'Submitting...' : 'Create Booking'}
-          </button>
-        </form>
-      )}
+        )}
+      </div>
 
-      {/* Bookings Table */}
-      {loading ? (
-        <p className="text-blue-500 text-center">Loading...</p>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow-md">
-          <table className="min-w-full">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-gray-600">Booking ID</th>
-                <th className="px-6 py-3 text-left text-gray-600">Customer</th>
-                <th className="px-6 py-3 text-left text-gray-600">Provider</th>
-                <th className="px-6 py-3 text-left text-gray-600">Service</th>
-                <th className="px-6 py-3 text-left text-gray-600">Date & Time</th>
-                <th className="px-6 py-3 text-left text-gray-600">Status</th>
-                <th className="px-6 py-3 text-left text-gray-600">Chat</th>
-                <th className="px-6 py-3 text-left text-gray-600">Notes</th>
-                <th className="px-6 py-3 text-left text-gray-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.length === 0 ? (
-                <tr>
-                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
-                    No bookings found
-                  </td>
-                </tr>
-              ) : (
-                bookings.map((booking) => (
-                  <tr key={booking.bookingId} className="border-t">
-                    <td className="px-6 py-4">{booking.bookingId}</td>
-                    <td className="px-6 py-4">{booking.customerId?.name || 'N/A'}</td>
-                    <td className="px-6 py-4">{booking.providerId?.name || 'N/A'}</td>
-                    <td className="px-6 py-4">{booking.serviceType}</td>
-                    <td className="px-6 py-4">{`${new Date(booking.bookingDate).toLocaleDateString()} ${booking.time}`}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 rounded ${
-                          booking.status === 'Accepted' ? 'bg-green-100 text-green-800' :
-                          booking.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                          booking.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
-                          booking.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {booking.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {booking.chatEnabled ? (
-                        <span className="text-green-600">Enabled</span>
-                      ) : (
-                        <span className="text-gray-600">Disabled</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">{booking.additionalNotes || 'N/A'}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        {userRole === 'provider' && booking.status === 'Pending' && (
-                          <select
-                            onChange={(e) => handleBookingAction(booking.bookingId, e.target.value)}
-                            disabled={loading}
-                            className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-200"
-                          >
-                            <option value="">Update Status</option>
-                            <option value="Accepted">Accept</option>
-                            <option value="Rejected">Reject</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Completed">Complete</option>
-                          </select>
-                        )}
-                        <button
-                          onClick={() => handleDownloadInvoice(booking.bookingId)}
-                          disabled={loading}
-                          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-blue-300"
-                        >
-                          Invoice
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </div>
   );
 };

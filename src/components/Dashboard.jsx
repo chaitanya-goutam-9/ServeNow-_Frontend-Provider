@@ -12,6 +12,11 @@ import {
   User,
 } from "lucide-react";
 import AddServiceForm from "./AddServiceForm"; // Ensure correct path to AddServiceForm.jsx
+import ManageBookings from "../pages/ManageBookings"; // Ensure correct path
+import ServiceHistory from "../pages/ServiceHistory"; // Import real component if available
+import Messages from "../pages/Messages"; // Import real component if available
+import EarningsReport from "../pages/EarningsReport"; // Import real component if available
+import Support from "../pages/Support"; // Import real component if available
 
 const BASE_URL = "http://localhost:5000/api";
 
@@ -252,42 +257,6 @@ const styles = {
     padding: "24px",
   },
 };
-
-// Placeholder components for other sections
-const ManageBookings = () => (
-  <div style={styles.contentArea}>
-    <h2>Manage Bookings</h2>
-    <p>Bookings management component would go here...</p>
-  </div>
-);
-
-const ServiceHistory = () => (
-  <div style={styles.contentArea}>
-    <h2>Service History</h2>
-    <p>Service history component would go here...</p>
-  </div>
-);
-
-const Messages = () => (
-  <div style={styles.contentArea}>
-    <h2>Messages</h2>
-    <p>Messages component would go here...</p>
-  </div>
-);
-
-const EarningsReport = () => (
-  <div style={styles.contentArea}>
-    <h2>Earnings Report</h2>
-    <p>Earnings report component would go here...</p>
-  </div>
-);
-
-const Support = () => (
-  <div style={styles.contentArea}>
-    <h2>Support</h2>
-    <p>Support component would go here...</p>
-  </div>
-);
 
 const ProfileManagement = ({ onProfileUpdate, initialProfile, onBackToDashboard }) => {
   const [profile, setProfile] = useState(
